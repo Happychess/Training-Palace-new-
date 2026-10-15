@@ -42,6 +42,7 @@ python tests/browser_smoke.py
 python tests/journal_smoke.py
 python tests/calendar_smoke.py
 python tests/games_smoke.py
+python tests/duck_smoke.py
 ```
 
 De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. Deze controleert gescheiden taak/vinkje-acties, ademhalingstimer, macroberekening, lokale foto-opslag, overname van maaltijdtotalen, workouts, dagelijkse herhaling en mobiele layout. Er worden geen AI-diensten aangeroepen.
@@ -60,6 +61,8 @@ Dagboekgegevens horen bij de browser én het domein. Een nieuwe preview-URL neem
 ## Agenda en Google Calendar
 
 De Agenda-tab toont een maandraster, je lokale gedateerde notities en, na koppelen, afspraken uit één gekozen Google-agenda. Lokale notities kunnen vanuit Agenda op Mijn dag worden bewerkt. Dit is geen achtergrond-synchronisatie of herinneringsdienst.
+
+De Google Calendar-koppeling is hervat op verzoek van de gebruiker. De publieke OAuth-client-ID en toegestane JavaScript-origin moeten nog worden ingesteld; tot dan blijft de koppeling uitgeschakeld.
 
 Google gebruikt een browser OAuth-flow via Google Identity Services. Iedere bezoeker verleent zelf alleen leesrechten (`calendar.events.readonly` en `calendar.calendarlist.readonly`). Access tokens blijven uitsluitend in geheugen, afspraken worden niet in localStorage of serveropslag bewaard en na herladen is opnieuw koppelen nodig. Ontkoppelen wist de Google-afspraken en het token uit het geheugen. De Google-grant blijft behouden om andere koppelingen met dezelfde client niet in te trekken, net als in de bronimplementatie. De gebruiker kan expliciet de volledige toestemming intrekken via de link naar Google-accountinstellingen. Lokale notities blijven behouden. Er wordt niets aan Google gewijzigd. Geen serviceaccount of gedeelde persoonlijke agenda gebruiken.
 
@@ -93,11 +96,9 @@ Google-instellingen: [OAuth-clients van chesstenders-calender](https://console.c
 
 De Games-tab bevat twee originele, lokaal uitgevoerde Canvas-spellen:
 
-- **Dino Run**: spring over cactussen met Spatie, pijltje omhoog of een tik. Score groeit met de afgelegde speeltijd; de snelheid neemt geleidelijk toe.
+- **Dino Run**: spring over cactussen met Spatie, pijltje omhoog of een tik. Houd pijltje omlaag of de knop **Bukken ↓** ingedrukt om onder vliegende vogels door te gaan. Loslaten laat de dino weer rechtstaan; pauzeren of weggaan heft het bukken op. Score groeit met de afgelegde speeltijd; de snelheid neemt geleidelijk toe.
 - **Flappy Palace**: fladder met dezelfde bediening tussen poorten. Iedere gepasseerde poort telt één punt.
 
 Starten, opnieuw spelen en pauzeren kan met zichtbare knoppen. `P` pauzeert/hervat het gefocuste speelveld; Escape pauzeert. Wisselen naar een andere app-tab, het verbergen van de browser of verlies van vensterfocus pauzeert automatisch. Hervatten gebeurt bewust, zonder sprong in de simulatietijd. De physics gebruikt vaste tijdstappen, onafhankelijk van de schermverversingssnelheid.
 
 Records staan apart van notities en taken onder `training-palace-games-v1` in lokale browseropslag. Geen advertenties, betaalde diensten, externe spelassets of spel-API’s. Na het laden van de pagina kunnen beide games zonder internetverbinding verder spelen. Een volledig nieuwe offline paginalaad wordt niet aangeboden: de website heeft geen offline-cache/serviceworker.
-
-Google Calendar is op verzoek van de gebruiker geparkeerd; vraag niet opnieuw om Google-instellingen totdat de gebruiker die koppeling hervat.

@@ -1,28 +1,32 @@
 (function(){
  const $=s=>document.querySelector(s),recordKey='training-palace-games-v1';
  const titles={runner:'Dino Run',flappy:'Flappy Palace'};
+ const duckSources=new Set();
  let game='runner',engine=null,mode='ready',raf=null,last=0,accumulator=0,records={runner:0,flappy:0},ctx;
  function readRecords(){try{const stored=JSON.parse(localStorage.getItem(recordKey));for(const key of Object.keys(records)){const value=stored?.[key];if(Number.isSafeInteger(value)&&value>=0)records[key]=value}}catch{$('#game-storage-status').textContent='Je records kunnen niet geladen worden in deze browser.'}}
  function persistBest(){if(!engine||engine.score<=records[game])return;records[game]=engine.score;try{localStorage.setItem(recordKey,JSON.stringify(records))}catch{$('#game-storage-status').textContent='Je kunt spelen, maar je record kon niet op dit toestel worden bewaard.'}}
  function sync(){
   $('#game-title').textContent=titles[game];$('#game-score').textContent=engine.score;$('#game-best').textContent=Math.max(records[game],engine.score);$('#runner-record').textContent=records.runner;$('#flappy-record').textContent=records.flappy;
   $('#game-stage').classList.toggle('is-flappy',game==='flappy');$('#game-stage').dataset.state=mode;
-  $('#game-instructions').textContent=game==='runner'?'Spring over de cactussen. Spatie, pijltje omhoog of tikken om te springen.':'Vlieg tussen de poorten. Spatie, pijltje omhoog of tikken om te fladderen.';
+  $('#game-instructions').textContent=game==='runner'?'Spring over cactussen met Spatie, ↑ of een tik. Houd ↓ of de knop Bukken ingedrukt om onder vogels te duiken.':'Vlieg tussen de poorten. Spatie, pijltje omhoog of tikken om te fladderen.';
   $('#game-start').textContent=mode==='paused'?'Hervatten':mode==='over'?'Opnieuw spelen':mode==='running'?'Opnieuw beginnen':'Start spel';
-  $('#game-pause').disabled=mode!=='running';$('#game-action').textContent=game==='runner'?'Spring ↑':'Fladder ↑';$('#game-action').disabled=mode!=='running';
+  $('#game-pause').disabled=mode!=='running';$('#game-action').textContent=game==='runner'?'Spring ↑':'Fladder ↑';$('#game-action').disabled=mode!=='running';$('#game-duck').hidden=game!=='runner';$('#game-duck').disabled=mode!=='running';$('#game-key-hint').textContent=game==='runner'?'Spatie / ↑: spring · ↓: buk · P: pauze':'Spatie / ↑: fladder · P: pauze';duckUi();
   $('#game-overlay').hidden=mode==='running';$('#game-overlay-title').textContent=mode==='paused'?'Even pauze.':mode==='over'?'Nog een rondje?':'Klaar voor een kleine pauze?';
   $('#game-overlay-text').textContent=mode==='paused'?'Je score blijft staan. Hervat wanneer je wilt.':mode==='over'?`Je score: ${engine.score}. Druk op Spatie of kies Opnieuw spelen.`:'Druk op Start, Spatie of tik op het speelveld.';
   $('#game-status').textContent=mode==='over'?`Spel afgelopen. Score ${engine.score}.`:mode==='paused'?'Spel gepauzeerd.':mode==='running'?'Spel gestart.':titles[game]+' staat klaar.';
  }
+ function duckUi(){const held=duckSources.size>0;$('#game-duck').classList.toggle('held',held);$('#game-duck').setAttribute('aria-pressed',String(held));$('#game-stage').dataset.ducking=String(game==='runner'&&!!engine?.player.ducking)}
+ function duckInput(source,held){if(held&&game==='runner'&&mode==='running')duckSources.add(source);else duckSources.delete(source);engine?.duck?.(game==='runner'&&mode==='running'&&duckSources.size>0);duckUi();draw()}
+ function clearDuck(){duckSources.clear();engine?.duck?.(false);duckUi()}
  function stopFrame(){cancelAnimationFrame(raf);raf=null;last=0;accumulator=0}
- function reset(){stopFrame();engine=game==='runner'?new PalaceGamesEngine.Runner():new PalaceGamesEngine.Flappy();mode='ready';const canvas=$('#game-canvas');canvas.width=engine.width;canvas.height=engine.height;sync();draw()}
+ function reset(){clearDuck();stopFrame();engine=game==='runner'?new PalaceGamesEngine.Runner():new PalaceGamesEngine.Flappy();mode='ready';const canvas=$('#game-canvas');canvas.width=engine.width;canvas.height=engine.height;sync();draw()}
  function start(){if(mode==='running')persistBest();if(mode!=='paused')reset();mode='running';last=0;accumulator=0;sync();$('#game-stage').focus({preventScroll:true});raf=requestAnimationFrame(frame)}
- function pause(){if(mode!=='running')return;stopFrame();mode='paused';persistBest();sync();draw()}
+ function pause(){if(mode!=='running')return;clearDuck();stopFrame();mode='paused';persistBest();sync();draw()}
  function action(){if(mode==='paused')return;if(mode!=='running')start();engine.action();draw()}
  function frame(time){
   if(mode!=='running')return;if(!last)last=time;accumulator+=Math.min((time-last)/1000,0.1);last=time;
-  while(accumulator>=1/120&&mode==='running'){engine.step(1/120);accumulator-=1/120;if(engine.over){mode='over';persistBest();stopFrame();sync()}}
-  $('#game-score').textContent=engine.score;$('#game-best').textContent=Math.max(records[game],engine.score);draw();if(mode==='running')raf=requestAnimationFrame(frame);
+  while(accumulator>=1/120&&mode==='running'){engine.step(1/120);accumulator-=1/120;if(engine.over){clearDuck();mode='over';persistBest();stopFrame();sync()}}
+  $('#game-score').textContent=engine.score;$('#game-best').textContent=Math.max(records[game],engine.score);duckUi();draw();if(mode==='running')raf=requestAnimationFrame(frame);
  }
  function box(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
  function circle(x,y,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
@@ -37,11 +41,20 @@
  function dino(x,y){
   // Original pixel dinosaur silhouette; no external art assets.
   const body='#f5ca53',light='#ffe394';
+  if(engine.player.ducking){
+   box(x+5,y+10,37,13,body);box(x+28,y+8,18,14,body);box(x+37,y,26,17,body);box(x-4,y+7,13,8,body);box(x+54,y+4,4,4,'#172034');box(x+50,y+12,13,2,'#bf993f');
+   const stride=mode==='running'?Math.floor(engine.elapsed*12)%2:0;box(x+14,y+21,7,stride?4:7,body);box(x+32,y+21,7,stride?7:4,body);box(x+14,y+(stride?24:27),12,1,light);box(x+32,y+(stride?27:24),12,1,light);return;
+  }
   box(x+20,y,26,23,body);box(x+17,y+16,22,26,body);box(x+5,y+25,27,19,body);box(x,y+19,9,20,body);box(x-5,y+15,7,14,body);box(x+29,y+29,15,5,body);box(x+39,y+29,4,9,body);
   const stride=mode==='running'&&engine.player.vy===0?Math.floor(engine.elapsed*12)%2:0;box(x+10,y+41,7,stride?8:14,body);box(x+23,y+41,7,stride?14:8,body);box(x+10,y+(stride?47:53),12,3,light);box(x+23,y+(stride?53:47),12,3,light);box(x+36,y+5,4,4,'#172034');box(x+34,y+17,12,3,'#bf993f');
  }
  function drawRunner(){
-  for(const obstacle of engine.obstacles){const x=obstacle.x,y=obstacle.y,w=obstacle.w,h=obstacle.h;box(x+w*.35,y,w*.4,h,'#78b19b');box(x,y+h*.35,w*.4,7,'#78b19b');box(x,y+h*.17,6,h*.25,'#78b19b');box(x+w*.65,y+h*.53,w*.35,7,'#78b19b');box(x+w-6,y+h*.3,6,h*.3,'#78b19b');box(x+w*.47,y+5,3,h-6,'#b6d5ad')}
+  for(const obstacle of engine.obstacles){const x=obstacle.x,y=obstacle.y,w=obstacle.w,h=obstacle.h;
+   if(obstacle.type==='bird'){
+    box(x+12,y+11,32,12,'#ea9874');box(x+39,y+7,15,13,'#f5c18a');box(x+49,y+10,3,3,'#172034');box(x+53,y+16,5,4,'#f5ca53');box(x,y+14,15,5,'#dc7b66');
+    const wing=Math.floor(engine.elapsed*9)%2;box(x+23,y+(wing?17:2),9,wing?12:14,'#f5b188');box(x+30,y+(wing?23:1),9,5,'#f5b188');continue;
+   }
+   box(x+w*.35,y,w*.4,h,'#78b19b');box(x,y+h*.35,w*.4,7,'#78b19b');box(x,y+h*.17,6,h*.25,'#78b19b');box(x+w*.65,y+h*.53,w*.35,7,'#78b19b');box(x+w-6,y+h*.3,6,h*.3,'#78b19b');box(x+w*.47,y+5,3,h-6,'#b6d5ad')}
   dino(engine.player.x,engine.player.y);
   if(mode==='ready'){box(590,252,12,54,'#395c56');box(580,270,14,7,'#395c56');box(580,260,5,13,'#395c56')}
  }
@@ -55,9 +68,17 @@
    document.querySelectorAll('[data-game]').forEach(button=>button.onclick=()=>{persistBest();game=button.dataset.game;document.querySelectorAll('[data-game]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button))});reset()});
    $('#game-start').onclick=start;$('#game-pause').onclick=pause;$('#game-action').onclick=()=>{if(mode==='running'){engine.action();$('#game-stage').focus({preventScroll:true})}};
    $('#game-canvas').addEventListener('pointerdown',e=>{e.preventDefault();$('#game-stage').focus({preventScroll:true});action()});
-   $('#game-stage').addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyP','Escape'].includes(e.code)){e.preventDefault();if(e.repeat)return;if(['KeyP','Escape'].includes(e.code)){if(mode==='running')pause();else if(mode==='paused'&&e.code==='KeyP')start()}else action()}});
+   $('#game-stage').addEventListener('keydown',e=>{if(e.code==='ArrowDown'){e.preventDefault();if(!e.repeat)duckInput('keyboard',true);return}if(['Space','ArrowUp','KeyP','Escape'].includes(e.code)){e.preventDefault();if(e.repeat)return;if(['KeyP','Escape'].includes(e.code)){if(mode==='running')pause();else if(mode==='paused'&&e.code==='KeyP')start()}else action()}});
+   const duck=$('#game-duck');
+   duck.addEventListener('pointerdown',e=>{if(e.button!==0||game!=='runner'||mode!=='running')return;e.preventDefault();try{duck.setPointerCapture(e.pointerId)}catch{}duckInput('pointer-'+e.pointerId,true);$('#game-stage').focus({preventScroll:true})});
+   for(const event of ['pointerup','pointercancel'])window.addEventListener(event,e=>duckInput('pointer-'+e.pointerId,false));
+   duck.addEventListener('lostpointercapture',e=>duckInput('pointer-'+e.pointerId,false));duck.addEventListener('contextmenu',e=>e.preventDefault());
+   duck.addEventListener('keydown',e=>{if(['Space','Enter'].includes(e.code)){e.preventDefault();if(!e.repeat)duckInput('button-key',true)}});
+   duck.addEventListener('blur',()=>duckInput('button-key',false));
+   window.addEventListener('keyup',e=>{if(e.code==='ArrowDown')duckInput('keyboard',false);if(['Space','Enter'].includes(e.code))duckInput('button-key',false)});
+   $('#game-stage').addEventListener('blur',()=>duckInput('keyboard',false));
    document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});window.addEventListener('blur',pause);
   },
-  show(){if(!engine)return;draw();sync()},hide(){pause()}
+  show(){if(!engine)return;draw();sync()},hide(){pause();clearDuck()}
  };
 })();
