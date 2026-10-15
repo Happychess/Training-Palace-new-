@@ -10,7 +10,7 @@ function save(){try{localStorage.setItem(key,JSON.stringify(state));return true}
 document.querySelector('#date').textContent=new Intl.DateTimeFormat('nl-BE',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
 function showPage(page){document.querySelector('#today').hidden=page!=='today';document.querySelector('#journal').hidden=page!=='journal';document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));}
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-document.querySelector('#open-journal').onclick=()=>{showPage('journal');document.querySelector('#journal-text').focus()};
+document.querySelector('#open-journal').onclick=()=>{dateInput.value=today;loadEntry();renderJournalHistory();showPage('journal')};
 function renderTasks(){
  const list=document.querySelector('#task-list');list.replaceChildren();
  day.tasks.forEach((task,i)=>{
@@ -25,12 +25,61 @@ function renderTasks(){
   button.append(words,tag,arrow);button.onclick=()=>openTask(i);row.append(check,button);list.append(row);
  });
  const done=day.tasks.filter(t=>t.done).length;document.querySelector('#count').textContent=`${done} van ${day.tasks.length}`;document.querySelector('#progress').style.width=`${done/day.tasks.length*100}%`;
- renderDayMacros();
+ renderDayMacros();updateTodaySaveState();
 }
 document.querySelector('#add-task').addEventListener('submit',e=>{e.preventDefault();const input=document.querySelector('#task-input');const title=input.value.trim();if(!title)return;day.tasks.push({title,detail:'Op mijn eigen tempo',tag:'Mijn stap',done:false});save();renderTasks();input.value='';input.focus()});
-document.querySelectorAll('[data-mood]').forEach(b=>{b.setAttribute('aria-label',b.dataset.mood);b.classList.toggle('selected',day.mood===b.dataset.mood);b.setAttribute('aria-pressed',String(day.mood===b.dataset.mood));b.onclick=()=>{day.mood=b.dataset.mood;save();document.querySelectorAll('[data-mood]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b))})}});
-const dateInput=document.querySelector('#journal-date'),textInput=document.querySelector('#journal-text'),status=document.querySelector('#save-status');dateInput.value=today;function loadEntry(){textInput.value=state.journal[dateInput.value]||'';status.textContent='Wordt automatisch op dit toestel bewaard.'}dateInput.addEventListener('change',()=>{if(!dateInput.value)dateInput.value=today;loadEntry()});loadEntry();textInput.addEventListener('input',()=>{state.journal[dateInput.value]=textInput.value;status.textContent=save()?'Opgeslagen op dit toestel.':'Opslaan mislukt. Exporteer je dagboek.'});
-document.querySelector('#export').onclick=()=>{const entries=Object.entries(state.journal).sort(([a],[b])=>a.localeCompare(b));const content=entries.map(([date,text])=>`## ${date}\n\n${text}`).join('\n\n');const blob=new Blob([content||'Je dagboek is nog leeg.'],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`training-palace-dagboek-${today}.txt`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+document.querySelectorAll('[data-mood]').forEach(b=>{b.setAttribute('aria-label',b.dataset.mood);b.classList.toggle('selected',day.mood===b.dataset.mood);b.setAttribute('aria-pressed',String(day.mood===b.dataset.mood));b.onclick=()=>{day.mood=b.dataset.mood;save();updateTodaySaveState();document.querySelectorAll('[data-mood]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b))})}});
+state.savedDays??={};
+const dateInput=document.querySelector('#journal-date'),textInput=document.querySelector('#journal-text'),status=document.querySelector('#save-status');
+const todayText=document.querySelector('#today-journal-text'),todayStatus=document.querySelector('#today-save-status');
+function snapshotFor(date){
+ const live=state.days[date],previous=state.savedDays[date];
+ return {mood:live?.mood??previous?.mood??null,tasks:structuredClone(live?.tasks??previous?.tasks??[]),text:state.journal[date]||''};
+}
+function dayChanged(){const saved=state.savedDays[today];if(!saved)return false;const current=snapshotFor(today);return current.mood!==saved.mood||current.text!==saved.text||JSON.stringify(current.tasks)!==JSON.stringify(saved.tasks)}
+function updateTodaySaveState(){
+ const saved=state.savedDays[today],changed=dayChanged();
+ document.querySelector('#save-today').textContent=saved?'Vandaag bijwerken':'Vandaag opslaan';
+ document.querySelector('#today-save-preview').textContent=`Stemming: ${day.mood||'nog niet gekozen'} · ${day.tasks.filter(t=>t.done).length} van ${day.tasks.length} taken afgevinkt`;
+ todayStatus.textContent=saved?(changed?'Je hebt wijzigingen. Werk je dagoverzicht bij.':'Vandaag opgeslagen.'): 'Je tekst blijft als concept bewaard.';
+}
+function storeDay(date){
+ const previous=state.savedDays[date];
+ state.savedDays[date]={...snapshotFor(date),savedAt:new Date().toISOString()};
+ if(!save()){if(previous)state.savedDays[date]=previous;else delete state.savedDays[date];return false}
+ updateTodaySaveState();renderJournalHistory();return true;
+}
+function renderJournalHistory(){
+ const history=document.querySelector('#journal-history');history.replaceChildren();
+ const dates=Object.keys(state.savedDays).sort().reverse();
+ if(!dates.length){history.append(note('Nog geen dagen opgeslagen. Sluit je dag af met ‘Vandaag opslaan’ op Mijn dag.'));return}
+ for(const date of dates){const entry=state.savedDays[date];const b=button('',()=>{dateInput.value=date;loadEntry();renderJournalHistory()});b.className='saved-day-card';b.classList.toggle('selected',dateInput.value===date);b.setAttribute('aria-pressed',String(dateInput.value===date));b.append(el('strong',{},new Intl.DateTimeFormat('nl-BE',{day:'numeric',month:'long',year:'numeric'}).format(new Date(date+'T12:00:00'))),el('span',{},`${entry.mood||'Geen stemming'} · ${entry.tasks.filter(t=>t.done).length}/${entry.tasks.length} taken`));history.append(b)}
+}
+function renderSavedDay(){
+ const view=document.querySelector('#saved-day-view'),entry=state.savedDays[dateInput.value];view.replaceChildren();
+ document.querySelector('#journal-edit').open=!entry;
+ document.querySelector('#save-journal-day').textContent=entry?'Dag bijwerken':'Dag opslaan';
+ if(!entry){view.append(note('Voor deze datum is nog geen dagoverzicht opgeslagen.'));return}
+ const meta=el('div',{className:'saved-day-meta'});meta.append(el('span',{},`Stemming: ${entry.mood||'Niet ingevuld'}`),el('span',{},`${entry.tasks.filter(t=>t.done).length} van ${entry.tasks.length} taken`));view.append(meta);
+ view.append(el('p',{className:'saved-day-text'},entry.text||'Geen dagboektekst toegevoegd.'));
+ const tasks=el('details',{className:'saved-day-tasks'});tasks.append(el('summary',{},'Taken van deze dag bekijken'));const list=el('ul');for(const task of entry.tasks){const li=el('li',{className:task.done?'done':''});li.append(el('span',{className:'saved-task-mark'},task.done?'✓':'○'),el('span',{},task.title));list.append(li)}tasks.append(list);view.append(tasks);
+ view.append(note('Opgeslagen op '+new Intl.DateTimeFormat('nl-BE',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}).format(new Date(entry.savedAt))));
+}
+function loadEntry(){textInput.value=state.journal[dateInput.value]||'';status.textContent='Tekst wordt als concept op dit toestel bewaard.';renderSavedDay()}
+function initializeJournal(){
+ dateInput.value=today;todayText.value=state.journal[today]||'';loadEntry();renderJournalHistory();updateTodaySaveState();
+ dateInput.addEventListener('change',()=>{if(!dateInput.value)dateInput.value=today;loadEntry();renderJournalHistory()});
+ todayText.addEventListener('input',()=>{state.journal[today]=todayText.value;const stored=save();if(dateInput.value===today)textInput.value=todayText.value;updateTodaySaveState();if(!stored)todayStatus.textContent='Opslaan mislukt. Kopieer je tekst voor je afsluit.'});
+ textInput.addEventListener('input',()=>{state.journal[dateInput.value]=textInput.value;const stored=save();if(dateInput.value===today){todayText.value=textInput.value;updateTodaySaveState()}status.textContent=stored?'Concept bewaard. Klik op Dag opslaan/bijwerken voor je dagoverzicht.':'Opslaan mislukt. Kopieer je tekst voor je afsluit.'});
+ document.querySelector('#save-today').onclick=()=>{if(localDate()!==today){todayStatus.textContent='Het is een nieuwe dag. Herlaad de pagina om die te beginnen; je concept is bewaard.';return}if(storeDay(today)){if(dateInput.value===today)renderSavedDay();todayStatus.textContent='Vandaag opgeslagen: je stemming, taken en tekst.'}else todayStatus.textContent='Opslaan mislukt. Kopieer je tekst voor je afsluit.'};
+ document.querySelector('#save-journal-day').onclick=()=>{if(storeDay(dateInput.value)){renderSavedDay();status.textContent='Dagoverzicht opgeslagen.'}else status.textContent='Opslaan mislukt. Kopieer je tekst voor je afsluit.'};
+ document.querySelector('#export').onclick=()=>{
+  const dates=[...new Set([...Object.keys(state.journal),...Object.keys(state.savedDays)])].sort();
+  const content=dates.map(date=>{const entry=state.savedDays[date];if(!entry)return `## ${date} (concept)\n\n${state.journal[date]||''}`;const lines=[`## ${date}`,`Stemming: ${entry.mood||'Niet ingevuld'}`,...entry.tasks.map(t=>`[${t.done?'x':' '}] ${t.title}`),'',entry.text||''];if((state.journal[date]||'')!==entry.text)lines.push('','Conceptwijzigingen (nog niet in dagoverzicht):',state.journal[date]||'');return lines.join('\n')}).join('\n\n');
+  const blob=new Blob([content||'Je dagboek is nog leeg.'],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`training-palace-dagboek-${today}.txt`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
+}
+
 
 
 // Task details and meal data are additive: existing checkmarks and journal entries remain intact.
@@ -151,5 +200,6 @@ function renderMeal(kind){
 }
 
 renderTasks();
+initializeJournal();
 // A page left open overnight must show the new day's empty checklist.
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&localDate()!==today)location.reload()});

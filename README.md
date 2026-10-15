@@ -12,7 +12,7 @@ python3 -m http.server 3000 --bind 0.0.0.0
 
 Open de app via je lokale ontwikkelomgeving op poort 3000.
 
-Gegevens worden lokaal in de browser opgeslagen, per kalenderdag. Geen account, serveropslag of synchronisatie. Het dagboek heeft een tekstexport. Browsergegevens wissen verwijdert de opgeslagen gegevens. Gebruik voor een dagboek op een gedeeld toestel een eigen browserprofiel; opslag is niet versleuteld. Lettertypen worden via Google Fonts geladen, met systeemlettertypen als fallback.
+Gegevens worden lokaal in de browser opgeslagen, per kalenderdag. Geen account, serveropslag of synchronisatie. Onder Mijn dag staat een dagboekvak met ‘Vandaag opslaan’. Deze knop bewaart een dagoverzicht met stemming, een onafhankelijke kopie van de taken en hun vinkjes, dagboektekst en opslagtijd. ‘Vandaag bijwerken’ vervangt het overzicht van diezelfde datum bewust. Tussentijds blijven tekstwijzigingen als concept bewaard; ze veranderen een opgeslagen overzicht pas na bijwerken. In Dagboek kun je opgeslagen dagen kiezen, teruglezen en exporteren inclusief stemming en taken. Bestaande losse dagboekteksten blijven behouden. Browsergegevens wissen verwijdert de opgeslagen gegevens. Gebruik voor een dagboek op een gedeeld toestel een eigen browserprofiel; opslag is niet versleuteld. Lettertypen worden via Google Fonts geladen, met systeemlettertypen als fallback.
 
 ## Dagelijkse taken
 
@@ -37,6 +37,7 @@ node --test tests/nutrition.test.cjs
 node tests/serve.cjs
 # Daarna (met Python Playwright en Chromium geïnstalleerd):
 python tests/browser_smoke.py
+python tests/journal_smoke.py
 ```
 
 De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. Deze controleert gescheiden taak/vinkje-acties, ademhalingstimer, macroberekening, lokale foto-opslag, overname van maaltijdtotalen, workouts, dagelijkse herhaling en mobiele layout. Er worden geen AI-diensten aangeroepen.

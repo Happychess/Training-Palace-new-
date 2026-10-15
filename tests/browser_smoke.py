@@ -4,6 +4,7 @@ Requires Python Playwright and Chromium. No external AI service is used.
 import json
 import os
 from pathlib import Path
+from datetime import datetime, timezone
 from playwright.sync_api import sync_playwright
 
 url = os.environ.get('PALACE_TEST_URL', 'http://127.0.0.1:3003')
@@ -15,7 +16,7 @@ with sync_playwright() as p:
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    page.clock.install(time=1792058400000)
+    page.clock.install(time=datetime(2026,10,15,10,0,tzinfo=timezone.utc))
     page.goto(url, wait_until='networkidle')
     rows = page.locator('#task-list > .task')
     assert rows.count() == 6
