@@ -43,6 +43,7 @@ python tests/journal_smoke.py
 python tests/calendar_smoke.py
 python tests/games_smoke.py
 python tests/duck_smoke.py
+python tests/dino_shop_smoke.py
 ```
 
 De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. Deze controleert gescheiden taak/vinkje-acties, ademhalingstimer, macroberekening, lokale foto-opslag, overname van maaltijdtotalen, workouts, dagelijkse herhaling en mobiele layout. Er worden geen AI-diensten aangeroepen.
@@ -96,9 +97,11 @@ Google-instellingen: [OAuth-clients van chesstenders-calender](https://console.c
 
 De Games-tab bevat twee originele, lokaal uitgevoerde Canvas-spellen:
 
-- **Dino Run**: spring over cactussen met Spatie, pijltje omhoog of een tik. Houd pijltje omlaag of de knop **Bukken ↓** ingedrukt om onder vliegende vogels door te gaan. Loslaten laat de dino weer rechtstaan; pauzeren of weggaan heft het bukken op. Score groeit met de afgelegde speeltijd; de snelheid neemt geleidelijk toe.
+- **Dino Run**: spring over cactussen met Spatie, pijltje omhoog of een tik. Houd pijltje omlaag of de knop **Bukken ↓** ingedrukt om onder vogelzwermen door te gaan. De zichtbare zwerm vult de lucht, zodat ook een supersprong er niet overheen kan. Spring vanuit bukken voor een hogere **supersprong**, met een eigen spoor en hoge coinrijen. Op mobiel kun je Bukken vasthouden en met een tweede vinger Spring aantikken. Loslaten laat de dino weer rechtstaan; pauzeren of weggaan heft het bukken op. Score groeit met de afgelegde speeltijd; de snelheid neemt geleidelijk toe.
 - **Flappy Palace**: fladder met dezelfde bediening tussen poorten. Iedere gepasseerde poort telt één punt.
 
 Starten, opnieuw spelen en pauzeren kan met zichtbare knoppen. `P` pauzeert/hervat het gefocuste speelveld; Escape pauzeert. Wisselen naar een andere app-tab, het verbergen van de browser of verlies van vensterfocus pauzeert automatisch. Hervatten gebeurt bewust, zonder sprong in de simulatietijd. De physics gebruikt vaste tijdstappen, onafhankelijk van de schermverversingssnelheid.
 
-Records staan apart van notities en taken onder `training-palace-games-v1` in lokale browseropslag. Geen advertenties, betaalde diensten, externe spelassets of spel-API’s. Na het laden van de pagina kunnen beide games zonder internetverbinding verder spelen. Een volledig nieuwe offline paginalaad wordt niet aangeboden: de website heeft geen offline-cache/serviceworker.
+Coins tel je alleen bij contact, eenmalig per coin, en ze worden tijdens het spelen direct bewaard. Onderaan Dino Run staat een skinshop: Happy Gold is standaard beschikbaar, Mint Move kost 15 coins, Royal Violet 40 en Pixel Pink 80. Een aankoop trekt alleen de eerste keer coins af, selecteert de skin meteen en bewaart het bezit. Gekochte skins kun je vrij wisselen; alle skins hebben dezelfde physics. De shop pauzeert een lopend spel. Bij een opslagfout wordt een aankoop niet uitgevoerd. De shop en coins horen alleen bij Dino Run.
+
+Records, coins, skinbezit en de gekozen skin staan apart van notities en taken onder `training-palace-games-v1` in lokale browseropslag. Bestaande Dino- en Flappy-records blijven behouden bij de uitbreiding van dit opslagformaat. Het is een lokale spelbeloning, geen gedeelde of beveiligde online wallet. Geen advertenties, aankopen met echt geld, betaalde diensten, externe spelassets of spel-API’s. Na het laden van de pagina kunnen beide games zonder internetverbinding verder spelen. Een volledig nieuwe offline paginalaad wordt niet aangeboden: de website heeft geen offline-cache/serviceworker.
