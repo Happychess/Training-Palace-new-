@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p dist && cp index.html style.css app.js nutrition.js calendar.js dist/",
+  "buildCommand": "mkdir -p dist && cp index.html style.css app.js nutrition.js calendar-google.js calendar.js dist/",
   "outputDirectory": "dist",
   "headers": [
     {

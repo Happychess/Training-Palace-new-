@@ -22,16 +22,17 @@ with sync_playwright() as p:
  assert page.locator('#today').is_visible() and page.locator('#journal-date').input_value()=='2026-10-16'
  # Configured route with GIS simulated locally.
  page.route('**/api/calendar-config',lambda route:route.fulfill(json={'clientId':'test.apps.googleusercontent.com'}))
- gis='''window.google={accounts:{oauth2:{initTokenClient:config=>({requestAccessToken:()=>config.callback({access_token:'test-memory-only',expires_in:3600,scope:config.scope})}),hasGrantedAllScopes:()=>true,revoke:(_token,done)=>done()}}};'''
+ gis='''window.google={accounts:{oauth2:{initTokenClient:config=>({requestAccessToken:()=>config.callback({access_token:'test-memory-only',expires_in:3600,scope:config.scope})}),hasGrantedAllScopes:()=>true,revoke:()=>{throw Error('Do not revoke a shared Google grant')}}}};'''
  page.route('https://accounts.google.com/gsi/client',lambda route:route.fulfill(body=gis,content_type='text/javascript'))
  api_requests=[]
  def api(route):
   api_requests.append(route.request)
   assert route.request.headers.get('authorization')=='Bearer test-memory-only'
-  if '/calendarList?' in route.request.url:route.fulfill(json={'items':[{'id':'own@example.com','summary':'Mijn agenda','primary':True},{'id':'work@example.com','summary':'Werk'}]})
+  if route.request.url.endswith('/colors'):route.fulfill(json={'event':{'3':{'background':'#dbadff','foreground':'#000000'}}})
+  elif '/calendarList?' in route.request.url:route.fulfill(json={'items':[{'id':'own@example.com','summary':'Mijn agenda','primary':True,'backgroundColor':'#16a765'},{'id':'work@example.com','summary':'Werk','backgroundColor':'#4986e7'}]})
   elif 'work%40' in route.request.url:route.fulfill(json={'items':[{'id':'work','summary':'Werkoverleg','start':{'dateTime':'2026-10-15T10:00:00+02:00'},'end':{'dateTime':'2026-10-15T11:00:00+02:00'}}]})
   else:route.fulfill(json={'items':[
-   {'id':'one','summary':'Schaaktraining <script>geen code</script>','start':{'dateTime':'2026-10-15T13:00:00+02:00'},'end':{'dateTime':'2026-10-15T14:00:00+02:00'},'htmlLink':'https://calendar.google.com/calendar/event?eid=one'},
+   {'id':'one','colorId':'3','summary':'Schaaktraining <script>geen code</script>','start':{'dateTime':'2026-10-15T13:00:00+02:00'},'end':{'dateTime':'2026-10-15T14:00:00+02:00'},'htmlLink':'https://calendar.google.com/calendar/event?eid=one'},
    {'id':'two','summary':'Meerdaagse afspraak','start':{'date':'2026-10-15'},'end':{'date':'2026-10-17'}},
    {'id':'three','summary':'Nachtshift','start':{'dateTime':'2026-10-15T23:00:00+02:00'},'end':{'dateTime':'2026-10-16T02:00:00+02:00'},'htmlLink':'javascript:alert(1)'},
    {'id':'cancel','status':'cancelled','summary':'Geannuleerd','start':{'date':'2026-10-15'},'end':{'date':'2026-10-16'}}]})
@@ -39,10 +40,12 @@ with sync_playwright() as p:
  page.reload(wait_until='networkidle');page.locator('nav [data-page=agenda]').click()
  page.get_by_role('button',name='Koppel Google Calendar').click()
  page.get_by_text('Schaaktraining <script>geen code</script>',exact=True).wait_for()
+ assert page.locator('#calendar-events .agenda-event').filter(has_text='Schaaktraining').evaluate('(el)=>el.style.backgroundColor')=='rgb(219, 173, 255)'
  assert page.locator('#calendar-events script').count()==0
  assert page.locator('#calendar-events a').count()==1
  assert 'Geannuleerd' not in page.locator('#calendar-events').inner_text()
  assert page.locator('#google-calendar-choice option').count()==2
+ assert any('showHidden=true' in req.url and 'minAccessRole=reader' in req.url for req in api_requests)
  page.locator('#calendar-day-input').fill('2026-10-16');page.locator('#calendar-day-input').dispatch_event('change')
  assert 'Meerdaagse afspraak' in page.locator('#calendar-events').inner_text()
  assert 'Nachtshift' in page.locator('#calendar-events').inner_text()
@@ -62,6 +65,11 @@ with sync_playwright() as p:
  page.locator('#calendar-disconnect').click()
  assert 'Werkoverleg' not in page.locator('#calendar-events').inner_text()
  assert page.locator('#calendar-disconnect').is_hidden()
+ page.route('https://www.googleapis.com/calendar/v3/**',lambda route:route.fulfill(status=500,json={'error':{'message':'Unavailable'}}))
+ page.get_by_role('button',name='Koppel Google Calendar').click()
+ page.wait_for_function("document.querySelector('#calendar-events').textContent.includes('konden niet geladen worden')")
+ assert 'Geen Google-afspraken voor deze dag.' not in page.locator('#calendar-events').inner_text()
+ page.locator('#calendar-disconnect').click()
  # Expired/denied access is visible, never silently reported as an empty successful agenda.
  page.route('https://www.googleapis.com/calendar/v3/**',lambda route:route.fulfill(status=401,json={'error':{'message':'Expired'}}))
  page.get_by_role('button',name='Koppel Google Calendar').click()

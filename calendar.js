@@ -4,11 +4,11 @@
  const $=selector=>document.querySelector(selector);
  const node=(tag,props={},text)=>{const n=document.createElement(tag);Object.assign(n,props);if(text!==undefined)n.textContent=text;return n};
  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
- let options,selected=iso(new Date()),month=new Date(new Date().getFullYear(),new Date().getMonth(),1),client=null,token=null,expiresAt=0,expiryTimer=null,events=[],calendars=[],calendarId='primary',loading=false,initializing=null,requestVersion=0,controller=null;
+ let options,selected=iso(new Date()),month=new Date(new Date().getFullYear(),new Date().getMonth(),1),client=null,token=null,expiresAt=0,expiryTimer=null,events=[],calendars=[],calendarId='primary',loading=false,loadError=null,palette={},initializing=null,requestVersion=0,controller=null;
  const dates=new Intl.DateTimeFormat('nl-BE',{weekday:'long',day:'numeric',month:'long'});
  function message(text){$('#calendar-status').textContent=text}
  function setConnected(connected){$('#calendar-connect').hidden=connected;$('#calendar-disconnect').hidden=!connected;$('#google-calendar-choice').hidden=!connected;$('#calendar-refresh').hidden=!connected;$('#calendar-account-state').textContent=connected?'Google Calendar gekoppeld':'Alleen je eigen notities';}
- function loseAccess(text){$('#calendar-connect').disabled=!client;token=null;expiresAt=0;clearTimeout(expiryTimer);requestVersion++;controller?.abort();events=[];calendars=[];calendarId='primary';$('#google-calendar-choice').replaceChildren();loading=false;setConnected(false);message(text);render()}
+ function loseAccess(text){$('#calendar-connect').disabled=!client;token=null;expiresAt=0;clearTimeout(expiryTimer);requestVersion++;controller?.abort();events=[];calendars=[];palette={};loadError=null;calendarId='primary';$('#google-calendar-choice').replaceChildren();loading=false;setConnected(false);message(text);render()}
  function eventOnDate(event,date){
   if(event.start?.date){return event.start.date<=date&&date<(event.end?.date||event.start.date+'x')}
   const start=new Date(event.start?.dateTime),end=new Date(event.end?.dateTime||event.start?.dateTime),from=new Date(date+'T00:00:00'),to=new Date(from);to.setDate(to.getDate()+1);
@@ -37,13 +37,14 @@
   for(const event of dayEvents){
    const card=node('article',{className:'agenda-event'});
    let time='Hele dag';if(event.start.dateTime){const format=new Intl.DateTimeFormat('nl-BE',{hour:'2-digit',minute:'2-digit'});time=format.format(new Date(event.start.dateTime));if(event.end?.dateTime)time+=' – '+format.format(new Date(event.end.dateTime))}
+   const eventColor=CalendarGoogle.getEventColor(event,calendars.find(c=>c.id===calendarId),palette);if(eventColor){card.classList.add('google-colored');card.style.backgroundColor=eventColor.background;card.style.borderLeftColor=eventColor.background;card.style.color=eventColor.foreground}
    card.append(node('span',{className:'agenda-event-time'},time),node('h3',{},event.summary||'(Zonder titel)'));
    if(event.location)card.append(node('p',{className:'agenda-event-meta'},event.location));
    // Never turn an arbitrary API value into an executable link.
-   try{const url=new URL(event.htmlLink);if(url.protocol==='https:'&&['calendar.google.com','www.google.com'].includes(url.hostname))card.append(node('a',{href:url.href,target:'_blank',rel:'noopener noreferrer',className:'agenda-google-link'},'Open in Google Calendar ↗'))}catch{}
+   const link=CalendarGoogle.safeEventLink(event.htmlLink);if(link)card.append(node('a',{href:link,target:'_blank',rel:'noopener noreferrer',className:'agenda-google-link'},'Open in Google Calendar ↗'))
    list.append(card);
   }
-  if(!dayEvents.length)list.append(node('p',{className:'detail-note'},loading?'Google-afspraken laden…':token?'Geen Google-afspraken voor deze dag.':'Koppel Google Calendar om je afspraken erbij te zien.'));
+  if(!dayEvents.length)list.append(node('p',{className:'detail-note'},loading?'Google-afspraken laden…':loadError?'Afspraken konden niet geladen worden.':token?'Geen Google-afspraken voor deze dag.':'Koppel Google Calendar om je afspraken erbij te zien.'));
   $('#calendar-loading').hidden=!loading;
  }
  function selectDate(date){
@@ -59,23 +60,25 @@
   return response.json();
  }
  async function loadEvents(){
-  if(!token)return;controller?.abort();controller=new AbortController();const signal=controller.signal,version=++requestVersion;loading=true;events=[];render();message('Afspraken laden…');
+  if(!token)return;controller?.abort();controller=new AbortController();const signal=controller.signal,version=++requestVersion;loading=true;loadError=null;events=[];render();message('Afspraken laden…');
   try{
    const from=new Date(month);from.setDate(1-(month.getDay()+6)%7);const to=new Date(from);to.setDate(to.getDate()+42);
    const query=new URLSearchParams({timeMin:from.toISOString(),timeMax:to.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'2500'});
-   let items=[],pageToken='';
-   do{if(pageToken)query.set('pageToken',pageToken);const data=await google('calendars/'+encodeURIComponent(calendarId)+'/events?'+query,signal);items.push(...(data.items||[]));pageToken=data.nextPageToken||''}while(pageToken&&version===requestVersion);
+   const items=await CalendarGoogle.pages(next=>{if(version!==requestVersion)throw new DOMException('Stale request','AbortError');if(next)query.set('pageToken',next);return google('calendars/'+encodeURIComponent(calendarId)+'/events?'+query,signal)});
    if(version!==requestVersion)return;events=items.filter(e=>e.status!=='cancelled'&&(e.start?.date||e.start?.dateTime));message('Afspraken bijgewerkt. Alleen lezen; er wordt niets aan Google gewijzigd.');
-  }catch(error){if(error.name!=='AbortError'&&version===requestVersion)message(error.message)}finally{if(version===requestVersion){loading=false;render()}}
+  }catch(error){if(error.name!=='AbortError'&&version===requestVersion){loadError=error.message;message(error.message)}}finally{if(version===requestVersion){loading=false;render()}}
  }
  async function loadCalendarList(){
   const version=requestVersion;try{
-   let items=[],pageToken='';do{const query=new URLSearchParams({maxResults:'250'});if(pageToken)query.set('pageToken',pageToken);const data=await google('users/me/calendarList?'+query);items.push(...(data.items||[]));pageToken=data.nextPageToken||''}while(pageToken&&version===requestVersion);
+   // Same complete-pagination and hidden-reader calendar behavior as the coaching adapter.
+   const items=await CalendarGoogle.pages(next=>{if(version!==requestVersion)throw new DOMException('Stale request','AbortError');const query=new URLSearchParams({maxResults:'250',minAccessRole:'reader',showHidden:'true'});if(next)query.set('pageToken',next);return google('users/me/calendarList?'+query)});
+   try{palette=await google('colors')}catch{palette={}}
+
    if(version!==requestVersion||!token)return;calendars=items;const select=$('#google-calendar-choice');select.replaceChildren();
    if(!calendars.some(c=>c.primary))select.append(node('option',{value:'primary'},'Mijn primaire agenda'));
-   for(const calendar of calendars)select.append(node('option',{value:calendar.id},calendar.summary||'Agenda'));
+   for(const calendar of calendars)select.append(node('option',{value:calendar.id},calendar.summaryOverride||calendar.summary||'Agenda'));
    calendarId=calendars.find(c=>c.primary)?.id||'primary';select.value=calendarId;loadEvents();
-  }catch(error){if(version===requestVersion&&token){message(error.message);loading=false;render()}}
+  }catch(error){if(version===requestVersion&&token){loadError=error.message;message(error.message);loading=false;render()}}
  }
  function handleToken(response){
   $('#calendar-connect').disabled=false;
@@ -99,7 +102,7 @@
  window.CalendarApp={
   init(config){
    options=config;$('#calendar-connect').onclick=()=>{if(!client){prepareGoogle();return}$('#calendar-connect').disabled=true;try{client.requestAccessToken({prompt:token?'':'consent'})}catch{$('#calendar-connect').disabled=false;message('Google kon niet geopend worden. Sta pop-ups toe en probeer opnieuw.')}};
-   $('#calendar-disconnect').onclick=()=>{const previous=token;loseAccess('Google Calendar ontkoppeld. Je lokale notities zijn behouden.');if(previous)window.google?.accounts?.oauth2?.revoke(previous,()=>{})};
+   $('#calendar-disconnect').onclick=()=>loseAccess('Google Calendar op dit toestel ontkoppeld. Je lokale notities en andere Google-koppelingen zijn behouden.');
    $('#calendar-refresh').onclick=loadEvents;
    $('#google-calendar-choice').onchange=e=>{calendarId=e.target.value;loadEvents()};
    $('#calendar-day-input').onchange=e=>selectDate(e.target.value);
