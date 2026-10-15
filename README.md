@@ -44,10 +44,10 @@ De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. 
 
 ## Vercel-preview
 
-De vaste ontwikkelpreview is https://newtrainingpalace-git-develop-happychess.vercel.app (Vercel-login vereist). Gebruik dit adres voor dagelijks gebruik, zodat browseropslag bij hetzelfde domein blijft. Na een CLI-previewdeploy moet deze branch-alias naar de nieuwe preview wijzen; controleer de afscherming zonder login. Bestaande gegevens op eerdere unieke preview-URL’s verhuizen niet automatisch mee.
+De vaste ontwikkelpreview is https://newtrainingpalace-git-develop-happychess.vercel.app (publiek toegankelijk zonder Vercel-account, op verzoek van de eigenaar). Gebruik dit adres voor dagelijks gebruik, zodat browseropslag bij hetzelfde domein blijft. Na een CLI-previewdeploy moet deze branch-alias naar de nieuwe preview wijzen; controleer dat het gedeelde adres zonder login HTTP 200 geeft. Bestaande gegevens op eerdere unieke preview-URL’s verhuizen niet automatisch mee.
 
 Importeer deze repository in Vercel, kies `Other` als framework en gebruik de repository-root. `vercel.json` bouwt uitsluitend de vier webbestanden naar `dist/`; er zijn geen dependencies of secrets voor de app nodig. Gebruik `develop` voor previews.
 
-Een preview-URL is niet vanzelf privé. Activeer Vercel Authentication onder Settings → Deployment Protection voor previews, en controleer in een uitgelogde browser dat de app afgeschermd is voordat je de link privé noemt. Publiceer deze versie niet als onbeveiligde productieomgeving wanneer je privétoegang wilt. De noindex-header voorkomt geen toegang.
+Vercel Authentication is op verzoek van de eigenaar uitgeschakeld voor dit project. Behoud publieke toegang bij volgende deployments, tenzij de eigenaar anders vraagt. Notities, stemming, taken en foto’s blijven lokaal in de browser van elke bezoeker; ze worden niet als gedeelde gegevens gepubliceerd. De noindex-header is geen toegangsbeveiliging.
 
 Dagboekgegevens horen bij de browser én het domein. Een nieuwe preview-URL neemt de gegevens van een eerdere URL niet over. Gebruik de tekstexport om notities veilig te bewaren.
