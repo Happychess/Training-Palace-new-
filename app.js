@@ -9,9 +9,10 @@ const day=state.days[today];
 function save(){try{localStorage.setItem(key,JSON.stringify(state));return true}catch{document.querySelector('#storage-error').hidden=false;return false}}
 document.querySelector('#date').textContent=new Intl.DateTimeFormat('nl-BE',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
 function showPage(page){
- document.querySelector('#today').hidden=page!=='today';document.querySelector('#agenda').hidden=page!=='agenda';
+ for(const name of ['today','agenda','games'])document.querySelector('#'+name).hidden=page!==name;
+ if(page!=='games')window.GameArcade?.hide();
  document.querySelectorAll('nav [data-page]').forEach(button=>{button.classList.toggle('active',button.dataset.page===page);button.setAttribute('aria-current',button.dataset.page===page?'page':'false')});
- if(page==='agenda')CalendarApp.show();window.scrollTo({top:0,behavior:'instant'});
+ if(page==='agenda')CalendarApp.show();if(page==='games')GameArcade.show();window.scrollTo({top:0,behavior:'instant'});
 }
 document.querySelectorAll('nav [data-page]').forEach(button=>button.onclick=()=>showPage(button.dataset.page));
 function renderTasks(){
@@ -224,6 +225,7 @@ function renderMeal(kind){
 
 renderTasks();
 initializeJournal();
+GameArcade.init();
 CalendarApp.init({
  getNotes:()=>Object.fromEntries([...new Set([...Object.keys(state.journal),...Object.keys(state.savedDays)])].map(date=>[date,{text:state.journal[date]??state.savedDays[date]?.text??'',saved:!!state.savedDays[date],mood:state.savedDays[date]?.mood||null}])),
  openNote:date=>{showPage('today');selectNoteDate(date);document.querySelector('#day-notes').scrollIntoView({block:'start',behavior:'smooth'});todayText.focus({preventScroll:true})}

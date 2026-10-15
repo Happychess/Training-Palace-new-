@@ -33,6 +33,7 @@ Onder ‘Liever door AI laten schatten?’ opent een link ChatGPT met de maaltij
 ```sh
 node --check app.js
 node --test tests/calendar-google.test.cjs
+node --test tests/games-engine.test.cjs
 node --test tests/nutrition.test.cjs
 # In een aparte terminal, voor de browsertest:
 node tests/serve.cjs
@@ -40,6 +41,7 @@ node tests/serve.cjs
 python tests/browser_smoke.py
 python tests/journal_smoke.py
 python tests/calendar_smoke.py
+python tests/games_smoke.py
 ```
 
 De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. Deze controleert gescheiden taak/vinkje-acties, ademhalingstimer, macroberekening, lokale foto-opslag, overname van maaltijdtotalen, workouts, dagelijkse herhaling en mobiele layout. Er worden geen AI-diensten aangeroepen.
@@ -48,7 +50,7 @@ De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. 
 
 De vaste ontwikkelpreview is https://newtrainingpalace-git-develop-happychess.vercel.app (publiek toegankelijk zonder Vercel-account, op verzoek van de eigenaar). Gebruik dit adres voor dagelijks gebruik, zodat browseropslag bij hetzelfde domein blijft. Na een CLI-previewdeploy moet deze branch-alias naar de nieuwe preview wijzen; controleer dat het gedeelde adres zonder login HTTP 200 geeft. Bestaande gegevens op eerdere unieke preview-URL’s verhuizen niet automatisch mee.
 
-Importeer deze repository in Vercel, kies `Other` als framework en gebruik de repository-root. `vercel.json` bouwt uitsluitend de zes webbestanden naar `dist/`; er zijn geen dependencies of secrets voor de app nodig. Gebruik `develop` voor previews.
+Importeer deze repository in Vercel, kies `Other` als framework en gebruik de repository-root. `vercel.json` bouwt uitsluitend de acht webbestanden naar `dist/`; er zijn geen dependencies of secrets voor de app nodig. Gebruik `develop` voor previews.
 
 Vercel Authentication is op verzoek van de eigenaar uitgeschakeld voor dit project. Behoud publieke toegang bij volgende deployments, tenzij de eigenaar anders vraagt. Notities, stemming, taken en foto’s blijven lokaal in de browser van elke bezoeker; ze worden niet als gedeelde gegevens gepubliceerd. De noindex-header is geen toegangsbeveiliging.
 
@@ -85,3 +87,17 @@ Het oude project gebruikte server-side OAuth met een ingelogd Chesstenders-accou
 Volgens de oorspronkelijke documentatie was het Google-project `chesstenders-calender`, met webclient ‘Chesstenders coding 2’ en consent-app in testmodus. De echte configuratiewaarden stonden uitsluitend in een genegeerd lokaal `.env.local`-bestand. In de geïnspecteerde Git-branch staat alleen `.env.example`; noch het Vercel-project `happy-chess` noch `newtrainingpalace` had Google Calendar-variabelen ingesteld tijdens deze controle. Daarom blijft de echte Google-aanmelding geblokkeerd tot de eigenaar de publieke client-ID en toegestane JavaScript-origin instelt. Geen secret of compleet .env-bestand in chat plaatsen.
 
 Google-instellingen: [OAuth-clients van chesstenders-calender](https://console.cloud.google.com/auth/clients?project=chesstenders-calender). Voeg als JavaScript-origin toe: `https://newtrainingpalace-git-develop-happychess.vercel.app`. De browserflow gebruikt geen callback, client-secret of encryptiesleutel. De oude lokale callback kan naast de nieuwe origin blijven bestaan.
+
+
+## Games
+
+De Games-tab bevat twee originele, lokaal uitgevoerde Canvas-spellen:
+
+- **Dino Run**: spring over cactussen met Spatie, pijltje omhoog of een tik. Score groeit met de afgelegde speeltijd; de snelheid neemt geleidelijk toe.
+- **Flappy Palace**: fladder met dezelfde bediening tussen poorten. Iedere gepasseerde poort telt één punt.
+
+Starten, opnieuw spelen en pauzeren kan met zichtbare knoppen. `P` pauzeert/hervat het gefocuste speelveld; Escape pauzeert. Wisselen naar een andere app-tab, het verbergen van de browser of verlies van vensterfocus pauzeert automatisch. Hervatten gebeurt bewust, zonder sprong in de simulatietijd. De physics gebruikt vaste tijdstappen, onafhankelijk van de schermverversingssnelheid.
+
+Records staan apart van notities en taken onder `training-palace-games-v1` in lokale browseropslag. Geen advertenties, betaalde diensten, externe spelassets of spel-API’s. Na het laden van de pagina kunnen beide games zonder internetverbinding verder spelen. Een volledig nieuwe offline paginalaad wordt niet aangeboden: de website heeft geen offline-cache/serviceworker.
+
+Google Calendar is op verzoek van de gebruiker geparkeerd; vraag niet opnieuw om Google-instellingen totdat de gebruiker die koppeling hervat.

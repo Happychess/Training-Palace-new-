@@ -1,0 +1,25 @@
+/* Small deterministic game simulations, independent of drawing and browser timers. */
+(function(root){
+ const overlaps=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+ class Runner{
+  constructor(random=Math.random){this.random=random;this.width=900;this.height=380;this.ground=306;this.elapsed=0;this.score=0;this.over=false;this.spawnIn=0.8;this.obstacles=[];this.player={x:86,y:252,w:44,h:54,vy:0}}
+  action(){if(!this.over&&this.player.y>=this.ground-this.player.h-0.1)this.player.vy=-700}
+  step(dt){
+   if(this.over)return;this.elapsed+=dt;this.score=Math.floor(this.elapsed*10);const p=this.player;p.vy+=2000*dt;p.y+=p.vy*dt;if(p.y>this.ground-p.h){p.y=this.ground-p.h;p.vy=0}
+   const speed=Math.min(540,290+this.elapsed*3);this.spawnIn-=dt;if(this.spawnIn<=0){const h=38+this.random()*32;this.obstacles.push({x:this.width+30,y:this.ground-h,w:24+this.random()*18,h});this.spawnIn=1.2+this.random()*0.7}
+   for(const obstacle of this.obstacles){obstacle.x-=speed*dt;if(overlaps({x:p.x+7,y:p.y+5,w:p.w-13,h:p.h-8},{x:obstacle.x+3,y:obstacle.y+3,w:obstacle.w-6,h:obstacle.h-3}))this.over=true}
+   this.obstacles=this.obstacles.filter(o=>o.x+o.w>-20);
+  }
+ }
+ class Flappy{
+  constructor(random=Math.random){this.random=random;this.width=480;this.height=600;this.ground=550;this.elapsed=0;this.score=0;this.over=false;this.spawnIn=0.6;this.pipes=[];this.player={x:116,y:245,r:15,vy:0}}
+  action(){if(!this.over)this.player.vy=-340}
+  step(dt){
+   if(this.over)return;this.elapsed+=dt;const p=this.player;p.vy+=1050*dt;p.y+=p.vy*dt;if(p.y-p.r<0||p.y+p.r>=this.ground){this.over=true;return}
+   const speed=Math.min(205,150+this.score*1.5);this.spawnIn-=dt;if(this.spawnIn<=0){const gap=Math.max(158,190-this.score*1.2),center=145+this.random()*245;this.pipes.push({x:this.width+20,w:68,top:center-gap/2,bottom:center+gap/2,passed:false});this.spawnIn=1.8}
+   for(const pipe of this.pipes){pipe.x-=speed*dt;for(const rect of [{x:pipe.x,y:0,w:pipe.w,h:pipe.top},{x:pipe.x,y:pipe.bottom,w:pipe.w,h:this.ground-pipe.bottom}]){const dx=p.x-Math.max(rect.x,Math.min(p.x,rect.x+rect.w)),dy=p.y-Math.max(rect.y,Math.min(p.y,rect.y+rect.h));if(dx*dx+dy*dy<p.r*p.r)this.over=true}if(!this.over&&!pipe.passed&&pipe.x+pipe.w<p.x-p.r){pipe.passed=true;this.score++}}
+   this.pipes=this.pipes.filter(pipe=>pipe.x+pipe.w>-20);
+  }
+ }
+ const api={Runner,Flappy};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PalaceGamesEngine=api;
+})(typeof window!=='undefined'?window:globalThis);
