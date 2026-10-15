@@ -44,6 +44,8 @@ De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. 
 
 ## Vercel-preview
 
+De vaste ontwikkelpreview is https://newtrainingpalace-git-develop-happychess.vercel.app (Vercel-login vereist). Gebruik dit adres voor dagelijks gebruik, zodat browseropslag bij hetzelfde domein blijft. Na een CLI-previewdeploy moet deze branch-alias naar de nieuwe preview wijzen; controleer de afscherming zonder login. Bestaande gegevens op eerdere unieke preview-URL’s verhuizen niet automatisch mee.
+
 Importeer deze repository in Vercel, kies `Other` als framework en gebruik de repository-root. `vercel.json` bouwt uitsluitend de vier webbestanden naar `dist/`; er zijn geen dependencies of secrets voor de app nodig. Gebruik `develop` voor previews.
 
 Een preview-URL is niet vanzelf privé. Activeer Vercel Authentication onder Settings → Deployment Protection voor previews, en controleer in een uitgelogde browser dat de app afgeschermd is voordat je de link privé noemt. Publiceer deze versie niet als onbeveiligde productieomgeving wanneer je privétoegang wilt. De noindex-header voorkomt geen toegang.
