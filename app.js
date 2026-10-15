@@ -8,7 +8,12 @@ state.days[today]??={mood:null,tasks:defaults.map(([title,detail,tag])=>({title,
 const day=state.days[today];
 function save(){try{localStorage.setItem(key,JSON.stringify(state));return true}catch{document.querySelector('#storage-error').hidden=false;return false}}
 document.querySelector('#date').textContent=new Intl.DateTimeFormat('nl-BE',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
-document.querySelector('nav [data-page=today]').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+function showPage(page){
+ document.querySelector('#today').hidden=page!=='today';document.querySelector('#agenda').hidden=page!=='agenda';
+ document.querySelectorAll('nav [data-page]').forEach(button=>{button.classList.toggle('active',button.dataset.page===page);button.setAttribute('aria-current',button.dataset.page===page?'page':'false')});
+ if(page==='agenda')CalendarApp.show();window.scrollTo({top:0,behavior:'instant'});
+}
+document.querySelectorAll('nav [data-page]').forEach(button=>button.onclick=()=>showPage(button.dataset.page));
 function renderTasks(){
  const list=document.querySelector('#task-list');list.replaceChildren();
  day.tasks.forEach((task,i)=>{
@@ -49,7 +54,7 @@ function updateTodaySaveState(){
 function storeDay(date){
  const previous=state.savedDays[date];state.savedDays[date]={...snapshotFor(date),savedAt:new Date().toISOString()};
  if(!save()){if(previous)state.savedDays[date]=previous;else delete state.savedDays[date];return false}
- updateTodaySaveState();renderJournalHistory();renderSavedDay();return true;
+ updateTodaySaveState();renderJournalHistory();renderSavedDay();window.CalendarApp?.refreshNotes();return true;
 }
 function renderJournalHistory(){
  const history=document.querySelector('#journal-history');history.replaceChildren();
@@ -219,5 +224,9 @@ function renderMeal(kind){
 
 renderTasks();
 initializeJournal();
+CalendarApp.init({
+ getNotes:()=>Object.fromEntries([...new Set([...Object.keys(state.journal),...Object.keys(state.savedDays)])].map(date=>[date,{text:state.journal[date]??state.savedDays[date]?.text??'',saved:!!state.savedDays[date],mood:state.savedDays[date]?.mood||null}])),
+ openNote:date=>{showPage('today');selectNoteDate(date);document.querySelector('#day-notes').scrollIntoView({block:'start',behavior:'smooth'});todayText.focus({preventScroll:true})}
+});
 // A page left open overnight must show the new day's empty checklist.
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&localDate()!==today)location.reload()});
