@@ -62,11 +62,11 @@ Dagboekgegevens horen bij de browser én het domein. Een nieuwe preview-URL neem
 
 De Agenda-tab toont een maandraster, je lokale gedateerde notities en, na koppelen, afspraken uit één gekozen Google-agenda. Lokale notities kunnen vanuit Agenda op Mijn dag worden bewerkt. Dit is geen achtergrond-synchronisatie of herinneringsdienst.
 
-De Google Calendar-koppeling is hervat op verzoek van de gebruiker. De publieke OAuth-client-ID en toegestane JavaScript-origin moeten nog worden ingesteld; tot dan blijft de koppeling uitgeschakeld.
+Op 15 oktober 2026 is de publieke OAuth-client-ID van de webclient ‘Happy training Palace’ uit `chesstenders-calender` ingesteld als `GOOGLE_CALENDAR_CLIENT_ID` voor Vercel Preview. De eigenaar heeft bevestigd dat de vaste preview-origin bij de toegestane JavaScript-origins is opgeslagen. Iedere bezoeker moet vervolgens zelf Google-toestemming geven via **Agenda → Koppel Google Calendar**.
 
 Google gebruikt een browser OAuth-flow via Google Identity Services. Iedere bezoeker verleent zelf alleen leesrechten (`calendar.events.readonly` en `calendar.calendarlist.readonly`). Access tokens blijven uitsluitend in geheugen, afspraken worden niet in localStorage of serveropslag bewaard en na herladen is opnieuw koppelen nodig. Ontkoppelen wist de Google-afspraken en het token uit het geheugen. De Google-grant blijft behouden om andere koppelingen met dezelfde client niet in te trekken, net als in de bronimplementatie. De gebruiker kan expliciet de volledige toestemming intrekken via de link naar Google-accountinstellingen. Lokale notities blijven behouden. Er wordt niets aan Google gewijzigd. Geen serviceaccount of gedeelde persoonlijke agenda gebruiken.
 
-Benodigde configuratie (nog niet aanwezig bij de eerste implementatie):
+Configuratie voor een nieuwe omgeving:
 
 1. Gebruik een Google OAuth **webclient**, eventueel die uit het Chesstender-project als de eigenaar daar toegang toe heeft. De bestaande coaching-koppeling is inmiddels gevonden op branch `heropbouw`; zie de herkomst hieronder. De publieke app gebruikt uitsluitend browser-toestemming en neemt geen bestaande refresh tokens of Chesstenders-accounts over.
 2. Schakel de [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) in voor het Google-project en configureer de OAuth-consentinstellingen. Als de app nog in testmodus staat, moeten de gebruikers als testgebruiker zijn toegevoegd.
@@ -76,7 +76,7 @@ Benodigde configuratie (nog niet aanwezig bij de eerste implementatie):
 
 Documentatie: [GIS token model](https://developers.google.com/identity/oauth2/web/guides/use-token-model) en [Calendar events.list](https://developers.google.com/calendar/api/v3/reference/events/list).
 
-De Google-aanmelding en API-antwoorden zijn met mocks getest (agenda kiezen, meerdere dagen, verlopen sessies en ontkoppelen). Een echte Google-koppeling is pas gevalideerd nadat een werkende clientconfiguratie en gebruikerstoestemming beschikbaar zijn.
+De Google-aanmelding en API-antwoorden zijn met mocks getest (agenda kiezen, meerdere dagen, verlopen sessies en ontkoppelen). De publieke clientconfiguratie kan live worden gecontroleerd via `/api/calendar-config`; de daadwerkelijke Google-aanmelding en persoonlijke afspraken vereisen toestemming in de browser van de gebruiker en zijn hier nog niet met een echt Google-account gevalideerd.
 
 
 ### Hergebruik uit Happychess-Website-
@@ -87,7 +87,7 @@ Bron: [heropbouw, commit 16270541](https://github.com/Happychess/Happychess-Webs
 
 Het oude project gebruikte server-side OAuth met een ingelogd Chesstenders-account, versleutelde refresh tokens en lokale/database-opslag. Die account-/opslaglaag wordt hier niet gekopieerd; deze publieke app heeft geen eigen accounts. Ook Google-wijzigingen, lessenbeheer en database-migraties vallen niet onder deze overname.
 
-Volgens de oorspronkelijke documentatie was het Google-project `chesstenders-calender`, met webclient ‘Chesstenders coding 2’ en consent-app in testmodus. De echte configuratiewaarden stonden uitsluitend in een genegeerd lokaal `.env.local`-bestand. In de geïnspecteerde Git-branch staat alleen `.env.example`; noch het Vercel-project `happy-chess` noch `newtrainingpalace` had Google Calendar-variabelen ingesteld tijdens deze controle. Daarom blijft de echte Google-aanmelding geblokkeerd tot de eigenaar de publieke client-ID en toegestane JavaScript-origin instelt. Geen secret of compleet .env-bestand in chat plaatsen.
+Volgens de oorspronkelijke documentatie was het Google-project `chesstenders-calender`, met webclient ‘Chesstenders coding 2’ en consent-app in testmodus. De configuratiewaarden stonden uitsluitend in een genegeerd lokaal `.env.local`-bestand. In de geïnspecteerde Git-branch staat alleen `.env.example`; bij de eerste controle hadden de Vercel-projecten `happy-chess` en `newtrainingpalace` geen Google Calendar-variabelen. De eigenaar heeft de publieke client-ID inmiddels zelf aangeleverd vanuit de webclient ‘Happy training Palace’ in hetzelfde Google-project, waarna de Preview-configuratie is ingesteld. Client-secrets en bestaande refresh tokens zijn niet overgenomen.
 
 Google-instellingen: [OAuth-clients van chesstenders-calender](https://console.cloud.google.com/auth/clients?project=chesstenders-calender). Voeg als JavaScript-origin toe: `https://newtrainingpalace-git-develop-happychess.vercel.app`. De browserflow gebruikt geen callback, client-secret of encryptiesleutel. De oude lokale callback kan naast de nieuwe origin blijven bestaan.
 
