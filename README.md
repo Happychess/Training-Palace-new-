@@ -1,6 +1,6 @@
 # Training Palace
 
-Eerste persoonlijke prototype: dagelijkse checklist, gevoelscheck en dagboek.
+Eerste persoonlijke prototype: dagelijkse checklist, gevoelscheck en notities per datum.
 
 ## Starten
 
@@ -12,7 +12,7 @@ python3 -m http.server 3000 --bind 0.0.0.0
 
 Open de app via je lokale ontwikkelomgeving op poort 3000.
 
-Gegevens worden lokaal in de browser opgeslagen, per kalenderdag. Geen account, serveropslag of synchronisatie. Onder Mijn dag staat een dagboekvak met ‘Vandaag opslaan’. Deze knop bewaart een dagoverzicht met stemming, een onafhankelijke kopie van de taken en hun vinkjes, dagboektekst en opslagtijd. ‘Vandaag bijwerken’ vervangt het overzicht van diezelfde datum bewust. Tussentijds blijven tekstwijzigingen als concept bewaard; ze veranderen een opgeslagen overzicht pas na bijwerken. In Dagboek kun je opgeslagen dagen kiezen, teruglezen en exporteren inclusief stemming en taken. Bestaande losse dagboekteksten blijven behouden. Browsergegevens wissen verwijdert de opgeslagen gegevens. Gebruik voor een dagboek op een gedeeld toestel een eigen browserprofiel; opslag is niet versleuteld. Lettertypen worden via Google Fonts geladen, met systeemlettertypen als fallback.
+Gegevens worden lokaal in de browser opgeslagen, per kalenderdag. Geen account, serveropslag of synchronisatie. Onderaan Mijn dag staat één notitievak met een datumkiezer en ‘Vandaag opslaan’. Er is geen aparte dagboekpagina. Deze knop bewaart een dagoverzicht met stemming, een onafhankelijke kopie van de taken en hun vinkjes, dagboektekst en opslagtijd. ‘Vandaag bijwerken’ vervangt het overzicht van diezelfde datum bewust. Tussentijds blijven tekstwijzigingen als concept bewaard; ze veranderen een opgeslagen overzicht pas na bijwerken. In hetzelfde vak kun je onder ‘Je notities’ andere dagen teruglezen en alles exporteren. Voor eerdere datums kun je een stemming en taken achteraf aanvullen; gegevens van vandaag worden niet naar andere datums gekopieerd. Toekomstige datums bewaren planningsnotities, zonder fictieve stemming of afgevinkte taken. Het zijn notities, geen agenda-integratie, meldingen of herinneringen. Als die datum vandaag wordt, verschijnt de voorafgeschreven notitie bij de echte dagtaken. Bestaande losse dagboekteksten blijven behouden. Browsergegevens wissen verwijdert de opgeslagen gegevens. Gebruik voor een dagboek op een gedeeld toestel een eigen browserprofiel; opslag is niet versleuteld. Lettertypen worden via Google Fonts geladen, met systeemlettertypen als fallback.
 
 ## Dagelijkse taken
 
