@@ -50,11 +50,11 @@ dialog.addEventListener('close',finishDetail);
 document.querySelector('#close-detail').onclick=()=>dialog.close();
 document.querySelector('#complete-task').onclick=()=>{if(activeTask===null)return;day.tasks[activeTask].done=!day.tasks[activeTask].done;save();renderTasks();dialog.close()};
 function openTask(index){
- finishDetail();activeTask=index;body.replaceChildren();message('');
+ finishDetail();activeTask=index;body.replaceChildren();body.classList.remove('meal-detail');message('');
  const task=day.tasks[index];document.querySelector('#detail-title').textContent=task.title;document.querySelector('#detail-category').textContent=task.tag;
  document.querySelector('#complete-task').textContent=task.done?'Vinkje ongedaan maken':'Taak afvinken';
  if(task.kind==='breathing')renderBreathing();else if(['breakfast','lunch','dinner'].includes(task.kind))renderMeal(task.kind);else if(task.kind==='workout')renderWorkout();else renderEditTask(task);
- if(!dialog.open)dialog.showModal();
+ if(!dialog.open)dialog.showModal();dialog.scrollTop=0;
 }
 function renderBreathing(){
  body.append(note('Kies een oefening. Adem zacht, zonder te forceren of je adem vast te houden. Je kunt op elk moment stoppen.'));
@@ -85,8 +85,6 @@ function renderWorkout(){
  select.onchange=()=>{day.workout.level=select.value;save();draw()};draw();body.append(note('Vooraf: 2 minuten rustig ter plaatse stappen en je gewrichten losmaken. Na afloop: even rustig uitwandelen. De hele dagtaak vink je zelf af.'));
 }
 
-// Indicative nutrition per 100 g. Labels on the actual product take precedence.
-const foods=[['Ei',13,1.1,11],['Spek, gebakken',37,1.4,42],['Brood, volkoren',9,39,3.5],['Cornflakes',7,84,0.9],['Melk, halfvol',3.5,4.8,1.5],['Yoghurt, naturel halfvol',4,4.5,1.5],['Havermout, droog',13,60,7],['Banaan, zonder schil',1.1,20,0.3],['Appel',0.3,12,0.2],['Kipfilet, bereid',31,0,3.6],['Rijst, gekookt',2.7,28,0.3],['Pasta, gekookt',5,30,1.1],['Aardappel, gekookt',2,17,0.1],['Broccoli, bereid',2.8,4,0.4],['Olijfolie',0,0,100],['Boter',0.5,0.5,82],['Kaas, Gouda',25,0,30]];
 function totals(meal){const factor=meal.mode==='high'?1.15:meal.mode==='exact'?1:0.85;const total={protein:0,carbs:0,fat:0};for(const row of meal.items){for(const key of Object.keys(total))total[key]+=Number(row[key]||0)*Number(row.grams||0)/100}for(const key of Object.keys(total))total[key]*=factor;total.calories=total.protein*4+total.carbs*4+total.fat*9;return total}
 function macroGrid(values){const grid=el('div',{className:'macro-grid'});[['calories','kcal'],['protein','g eiwit'],['carbs','g koolhydr.'],['fat','g vet']].forEach(([key,label])=>{const cell=el('div');cell.append(el('strong',{},String(Math.round(values[key]||0))),el('span',{},label));grid.append(cell)});return grid}
 function renderDayMacros(){let card=document.querySelector('#daily-macros');if(!card){card=el('section',{className:'card daily-macros',id:'daily-macros'});document.querySelector('.secondary').append(card)}const total={calories:0,protein:0,carbs:0,fat:0};for(const meal of Object.values(day.meals||{})){const v=totals(meal);for(const k of Object.keys(total))total[k]+=v[k]}card.replaceChildren(el('span',{className:'section-kicker'},'VOEDING VANDAAG'),el('h2',{},'Mijn dagtotaal'),macroGrid(total),note('Totaal van je geregistreerde maaltijden. Lage of hoge schatting per maaltijd; geen exact gemeten waarden.'))}
@@ -94,36 +92,64 @@ function photoStore(mode,fn){return new Promise((resolve,reject)=>{const request
 async function compressPhoto(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Kies een JPG-, PNG- of WebP-foto. Zet HEIC zo nodig eerst om.');if(file.size>20*1024*1024)throw Error('Deze foto is te groot. Kies een bestand kleiner dan 20 MB.');const bitmap=await createImageBitmap(file);const scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Foto verwerken lukt niet.')),'image/jpeg',0.8))}
 function renderMeal(kind){
  const meal=day.meals[kind]??={description:'',mode:'high',items:[]};
- body.append(note('Registreer voeding en porties, of neem een bestaande macroschatting over. Controleer de uitkomst: productetiketten en gewogen porties zijn nauwkeuriger.'));
- const description=el('textarea',{id:'meal-description',rows:2,value:meal.description,placeholder:'Bijvoorbeeld: twee eitjes, spek en een snee brood',maxLength:2000});description.oninput=()=>{meal.description=description.value;save()};body.append(field('Wat heb ik gegeten?',description));
- const mode=el('select',{id:'meal-mode'});mode.append(el('option',{value:'low'},'Lage schatting (−15%)'),el('option',{value:'high'},'Hoge schatting (+15%)'),el('option',{value:'exact'},'Overnemen zonder extra marge'));mode.value=meal.mode;body.append(field('Hoe wil ik schatten?',mode),note('Laag rekent 15% onder de basis, hoog 15% erboven. Porties, bakvet en sauzen kunnen meer afwijken.'));
- const result=el('div',{id:'meal-totals'});body.append(result);const update=()=>{result.replaceChildren(macroGrid(totals(meal)));renderDayMacros()};mode.onchange=()=>{meal.mode=mode.value;save();update()};
- const list=el('div',{id:'food-items'});body.append(list);
- const source=el('select',{id:'food-choice'});foods.forEach(([name],i)=>source.append(el('option',{value:i},name)));source.append(el('option',{value:'custom'},'Eigen product / etiket invoeren'));
- const grams=el('input',{id:'food-grams',type:'number',min:1,max:5000,step:1,value:100,required:true});
- const custom=el('div',{className:'custom-food',hidden:true});const product=el('input',{placeholder:'Productnaam',maxLength:100});custom.append(field('Eigen product',product));const customMacros={};for(const [key,label]of [['protein','Eiwit / 100 g'],['carbs','Koolhydraten / 100 g'],['fat','Vet / 100 g']]){customMacros[key]=el('input',{type:'number',min:0,max:100,step:0.1,value:0});custom.append(field(label,customMacros[key]))}
- source.onchange=()=>custom.hidden=source.value!=='custom';
- const form=el('form',{className:'food-form'});form.append(field('Voedingsmiddel',source),field('Portie in gram (melk: ongeveer ml)',grams),custom);const add=el('button',{type:'submit',className:'dark-button'},'Voedingsmiddel toevoegen');form.append(add);body.append(form);
- function drawItems(){list.replaceChildren();meal.items.forEach((item,i)=>{const row=el('div',{className:'food-row'});row.append(el('span',{},item.wholeMeal?`${item.name} · hele maaltijd`:`${item.name} · ${item.grams} g`),button('Verwijder',()=>{meal.items.splice(i,1);save();drawItems();update()}));list.append(row)})}
- form.onsubmit=e=>{e.preventDefault();const amount=Number(grams.value);if(!Number.isFinite(amount)||amount<=0||amount>5000)return message('Kies een portie tussen 1 en 5000 gram.');let item;if(source.value==='custom'){const values=Object.fromEntries(Object.entries(customMacros).map(([k,input])=>[k,Number(input.value)]));if(!product.value.trim()||Object.values(values).some(v=>!Number.isFinite(v)||v<0||v>100)||Object.values(values).reduce((a,b)=>a+b,0)>100.5)return message('Controleer de productnaam en macro’s per 100 gram.');item={name:product.value.trim(),...values}}else{const [name,protein,carbs,fat]=foods[Number(source.value)];item={name,protein,carbs,fat}}meal.items.push({...item,grams:amount});save();drawItems();update();message('Voeding toegevoegd.')};
- body.append(note('Handig: één ei zonder schaal weegt ongeveer 50 g. Gebruik voor rijst en pasta het gekookte gewicht. Vergeet bakvet, sauzen en drank niet.'));
- const photoSection=el('section',{className:'meal-photo'});photoSection.append(el('h3',{},'Foto van mijn maaltijd'),note('Neem op je telefoon een foto of kies een bestand. Je foto blijft op dit toestel. Automatische fotoanalyse is niet actief: zo maak je geen API-kosten. Je kunt de foto zelf in ChatGPT laten schatten, binnen de limieten van je abonnement, en hieronder de totalen overnemen.'));
- const upload=el('input',{id:'meal-photo',type:'file',accept:'image/jpeg,image/png,image/webp'});upload.setAttribute('capture','environment');
- const photo=el('img',{className:'meal-photo-preview',alt:'Mijn maaltijdfoto',hidden:true});
- const photoKey=`${today}/${kind}`;let alive=true;cleanDetail=()=>{alive=false};let generation=0;
- async function display(blob){if(!alive)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=blob?URL.createObjectURL(blob):null;photo.hidden=!blob;if(blob)photo.src=photoUrl;else photo.removeAttribute('src')}
- photoStore('readonly',store=>store.get(photoKey)).then(blob=>{if(generation===0)display(blob)}).catch(()=>{if(alive)message('Foto-opslag is niet beschikbaar in deze browser.')});
- upload.onchange=async()=>{const file=upload.files[0];if(!file)return;const version=++generation;upload.disabled=true;try{const blob=await compressPhoto(file);if(!alive||version!==generation)return;await photoStore('readwrite',store=>store.put(blob,photoKey));if(alive&&version===generation){await display(blob);message('Foto lokaal bewaard. Vul voeding in of neem een macroschatting over.')}}catch(error){if(alive)message(error.message)}finally{if(alive)upload.disabled=false;upload.value=''}};
- photoSection.append(field('Foto nemen / kiezen',upload),photo,button('Foto verwijderen',async()=>{generation++;try{await photoStore('readwrite',store=>store.delete(photoKey));if(alive){display(null);message('Foto verwijderd.')}}catch{if(alive)message('Verwijderen is mislukt.')}}));body.append(photoSection);
- photoSection.append(note('Geen automatische AI-analyse of externe API-aanroepen. Een ChatGPT-abonnement omvat geen API-gebruik.'));
- const transfer=el('section',{className:'manual-transfer'});transfer.append(el('h3',{},'Macro’s voor de hele maaltijd overnemen'),note('Heb je een schatting uit ChatGPT of van een verpakking? Vul hier de totalen in, niet de waarden per 100 g. Calorieën worden berekend uit deze macro’s. Deze invoer vervangt de voedingsmiddelen hierboven.'));
- const transferForm=el('form');const inputs={};const controls=el('div',{className:'transfer-grid'});
+ if(meal.items.length&&meal.estimatedDescription===undefined)meal.estimatedDescription=meal.description;
+ let alive=true,generation=0;cleanDetail=()=>{alive=false};
+ body.classList.add('meal-detail');
+ const description=el('textarea',{id:'meal-description',rows:3,value:meal.description,placeholder:'Bijv. 2 eitjes met spek en een witte boterham',maxLength:2000});
+ body.append(field('Wat heb je gegeten?',description));
+ const photoKey=`${today}/${kind}`;
+ const upload=el('input',{id:'meal-photo',type:'file',accept:'image/jpeg,image/png,image/webp',hidden:true});upload.setAttribute('capture','environment');
+ const photo=el('img',{className:'meal-photo-preview compact-photo',alt:'Mijn maaltijdfoto',hidden:true});
+ const photoTools=el('div',{className:'photo-tools'});
+ const removePhoto=button('Verwijderen',async()=>{generation++;try{await photoStore('readwrite',s=>s.delete(photoKey));if(alive){displayPhoto(null);message('Foto verwijderd.')}}catch{if(alive)message('Verwijderen is mislukt.')}});removePhoto.hidden=true;
+ const photoButton=button('＋ Foto toevoegen',()=>upload.click());
+ const photoHint=el('span',{className:'photo-hint'},'optioneel');photoTools.append(photoButton,photoHint,removePhoto);body.append(photoTools,upload,photo);
+ function displayPhoto(blob){if(!alive)return;if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=blob?URL.createObjectURL(blob):null;photo.hidden=!blob;removePhoto.hidden=!blob;photoHint.textContent=blob?'Lokaal bewaard · niet automatisch geanalyseerd':'optioneel';photoButton.textContent=blob?'Foto wijzigen':'＋ Foto toevoegen';if(blob)photo.src=photoUrl;else photo.removeAttribute('src')}
+ photoStore('readonly',s=>s.get(photoKey)).then(blob=>{if(generation===0)displayPhoto(blob)}).catch(()=>{if(alive)photoHint.textContent='Foto-opslag niet beschikbaar.'});
+ upload.onchange=async()=>{const file=upload.files[0];if(!file)return;const version=++generation;photoButton.disabled=true;try{const blob=await compressPhoto(file);if(!alive||version!==generation)return;await photoStore('readwrite',s=>s.put(blob,photoKey));if(alive&&version===generation){displayPhoto(blob);message('Foto bewaard. De snelle schatting gebruikt je tekst, niet de foto.')}}catch(error){if(alive)message(error.message)}finally{if(alive)photoButton.disabled=false;upload.value=''}};
+ const actions=el('div',{className:'meal-actions'});
+ const estimateButton=button('Schat mijn maaltijd',()=>{
+  const estimate=MealEstimator.estimate(description.value);
+  if(!estimate.complete){hint.textContent=estimate.issues.join(' · ');hint.classList.add('needs-attention');aiDetails.open=true;updatePrompt();return;}
+  meal.items=estimate.items;meal.assumptions=estimate.assumptions;meal.source='local';meal.estimatedDescription=description.value;meal.description=description.value;
+  const stored=save();update();message(stored?'Schatting bewaard.':'Opslaan lukt niet op dit toestel.');
+ },'dark-button');
+ const mode=el('select',{id:'meal-mode'});mode.setAttribute('aria-label','Lage of hoge schatting');
+ mode.append(el('option',{value:'low'},'Laag'),el('option',{value:'high'},'Hoog'),el('option',{value:'exact'},'Basis'));mode.value=meal.mode;
+ mode.onchange=()=>{meal.mode=mode.value;save();update();updatePrompt()};actions.append(estimateButton,mode);body.append(actions);
+ const hint=el('p',{className:'detail-note',id:'meal-hint'},'Een snelle schatting met standaardporties. Je kunt ze daarna aanpassen.');hint.setAttribute('role','status');body.append(hint);
+ const result=el('section',{id:'meal-totals',className:'meal-result'});body.append(result);
+ const adjust=el('details',{className:'meal-more',id:'meal-adjust'});adjust.append(el('summary',{},'Porties bekijken of aanpassen'));
+ const portions=el('div',{id:'food-items'});adjust.append(portions,note('Porties zijn aannames. Laag/hoog rekent −15%/+15%; verborgen bakvet en sauzen kunnen meer afwijken.'));body.append(adjust);
+ function drawItems(){portions.replaceChildren();meal.items.forEach((item,i)=>{const row=el('div',{className:'food-row'});row.append(el('span',{},item.wholeMeal?item.name:item.name));if(!item.wholeMeal){const grams=el('input',{type:'number',min:1,max:5000,step:0.1,value:item.grams});grams.setAttribute('aria-label',item.name+' in gram');const unit=el('label',{className:'portion-grams'},'g');unit.prepend(grams);row.append(unit);grams.onchange=()=>{const value=Number(grams.value);if(!Number.isFinite(value)||value<1||value>5000){grams.value=item.grams;return}item.grams=value;save();update()}}row.append(button('×',()=>{meal.items.splice(i,1);save();update()}));row.lastChild.setAttribute('aria-label',item.name+' verwijderen');portions.append(row)});if(meal.source==='local')portions.append(note('Bekende voedingsmiddelen uit een kleine voedingslijst; geen AI-analyse. Gewichten voor rijst en pasta zijn bereid gewicht. Bakvet telt alleen mee als je het noemt.'))}
+ function update(){
+  const stale=meal.items.length&&meal.estimatedDescription!==undefined&&meal.estimatedDescription!==description.value;
+  result.hidden=!meal.items.length;adjust.hidden=!meal.items.length;
+  result.replaceChildren();
+  if(meal.items.length){result.append(el('span',{className:'section-kicker'},stale?'VORIGE SCHATTING':meal.source==='chatgpt'?'OVERGENOMEN AI-SCHATTING':meal.source==='local'?'SNELLE TEKSTSCHATTING':'BEWAARDE SCHATTING'),macroGrid(totals(meal)));}
+  hint.classList.remove('needs-attention');
+  hint.textContent=stale?'Beschrijving gewijzigd. Klik op ‘Schat mijn maaltijd’ om je vorige schatting te vernieuwen.':meal.items.length?'Grove schatting · bewaard bij deze maaltijd.':'Een snelle schatting met standaardporties. Je kunt ze daarna aanpassen.';
+  drawItems();renderDayMacros();
+ }
+ description.oninput=()=>{meal.description=description.value;save();update();updatePrompt();message('')};
+ const aiDetails=el('details',{className:'meal-more',id:'meal-ai'});aiDetails.append(el('summary',{},'Liever door AI laten schatten?'));
+ aiDetails.append(note('Open ChatGPT met je beschrijving. Voeg je foto daar zelf toe en plak het antwoord hieronder terug. Dit gebruikt geen betaalde API; de limieten van je ChatGPT-abonnement gelden.'));
+ const prompt=el('textarea',{id:'ai-prompt',readOnly:true,rows:3});prompt.setAttribute('aria-label','Opdracht voor ChatGPT');
+ function updatePrompt(){prompt.value='Schat de totale macro’s van deze maaltijd'+(meal.mode==='high'?' aan de hoge kant':meal.mode==='low'?' aan de lage kant':'')+'. Beschrijving: '+JSON.stringify(description.value)+'. Als ik een foto toevoeg, gebruik die als extra context. Neem redelijke porties aan als gewichten ontbreken. Geef alleen één JSON-object zonder opmaak: {"protein": getal in gram, "carbs": getal in gram, "fat": getal in gram}. Dit zijn TOTALEN voor de hele maaltijd, niet per 100 g.';chat.href='https://chatgpt.com/?q='+encodeURIComponent(prompt.value)}
+ const chat=el('a',{className:'dark-button chat-link',target:'_blank',rel:'noopener noreferrer'},'Open ChatGPT ↗');
+ const copy=button('Kopieer opdracht',async()=>{try{await navigator.clipboard.writeText(prompt.value);message('Opdracht gekopieerd.')}catch{prompt.hidden=false;prompt.select();message('Kopieer de geselecteerde opdracht.')}});
+ const aiActions=el('div',{className:'button-row'});aiActions.append(chat,copy);aiDetails.append(aiActions);prompt.hidden=true;aiDetails.append(prompt);
+ const paste=el('textarea',{id:'ai-answer',rows:2,placeholder:'Plak hier het antwoord uit ChatGPT…',maxLength:5000});aiDetails.append(field('AI-antwoord',paste),button('Gebruik AI-schatting',()=>{try{const values=MealEstimator.readMacros(paste.value);meal.items=[{name:'AI-schatting hele maaltijd',grams:100,wholeMeal:true,...values}];meal.source='chatgpt';meal.estimatedDescription=description.value;meal.mode='exact';mode.value='exact';const stored=save();update();aiDetails.open=false;message(stored?'AI-schatting overgenomen, zonder extra marge.':'Opslaan lukt niet op dit toestel.')}catch(error){message(error.message)}},'dark-button'));
+ body.append(aiDetails);
+ // Keep less-used manual controls accessible without crowding the main flow.
+ const manual=el('details',{className:'meal-more',id:'meal-manual'});manual.append(el('summary',{},'Zelf macro’s invullen'));
+ const transferForm=el('form'),inputs={},controls=el('div',{className:'transfer-grid'});
  for(const [key,label]of [['protein','Eiwit (g)'],['carbs','Koolhydraten (g)'],['fat','Vet (g)']]){inputs[key]=el('input',{type:'number',min:0,max:1000,step:0.1,required:true});controls.append(field(label,inputs[key]))}
  const useTotals=el('button',{type:'submit',className:'dark-button'},'Gebruik maaltijdtotalen');transferForm.append(controls,useTotals);
- transferForm.onsubmit=e=>{e.preventDefault();const values=Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,Number(input.value)]));if(Object.values(values).some(v=>!Number.isFinite(v)||v<0||v>1000))return message('Vul geldige macro’s tussen 0 en 1000 gram in.');meal.items=[{name:'Overgenomen maaltijdtotalen',grams:100,wholeMeal:true,...values}];meal.mode='exact';mode.value='exact';delete meal.photoNotes;delete meal.source;save();drawItems();update();message('Maaltijdtotalen overgenomen zonder extra marge. Je kunt hierboven alsnog laag of hoog kiezen.');};
- transfer.append(transferForm);body.append(transfer);
- drawItems();update();
+ transferForm.onsubmit=e=>{e.preventDefault();const values=Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,Number(input.value)]));if(Object.values(values).some(v=>!Number.isFinite(v)||v<0||v>1000))return message('Vul geldige macro’s tussen 0 en 1000 gram in.');meal.items=[{name:'Ingevoerde maaltijdtotalen',grams:100,wholeMeal:true,...values}];meal.mode='exact';mode.value='exact';meal.source='manual';meal.estimatedDescription=description.value;save();update();manual.open=false;message('Maaltijdtotalen bewaard.');};manual.append(transferForm);body.append(manual);
+ updatePrompt();update();
 }
+
 renderTasks();
 // A page left open overnight must show the new day's empty checklist.
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&localDate()!==today)location.reload()});

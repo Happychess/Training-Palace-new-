@@ -38,41 +38,40 @@ with sync_playwright() as p:
     rows.nth(0).locator('input').uncheck()
     assert not page.locator('#task-dialog').is_visible()
     rows.nth(1).locator('.task-open').click()
-    page.locator('#meal-description').fill('Twee eieren en spek')
-    page.locator('#food-grams').fill('100')
-    page.get_by_role('button', name='Voedingsmiddel toevoegen').click()
-    page.locator('#food-choice').select_option('1')
-    page.locator('#food-grams').fill('30')
-    page.get_by_role('button', name='Voedingsmiddel toevoegen').click()
-    assert page.locator('#meal-totals strong').first.inner_text() == '362'
+    assert page.locator('#meal-totals').is_hidden()
+    assert page.locator('#meal-adjust').is_hidden()
+    assert not page.locator('#meal-ai').get_attribute('open')
+    page.locator('#meal-description').fill('2x eitjes, met spek en een witte botherham')
+    page.get_by_role('button', name='Schat mijn maaltijd', exact=True).click()
+    assert page.locator('#meal-totals strong').first.inner_text() == '462'
+    assert page.locator('#food-items .food-row').count() == 3
     page.locator('#meal-mode').select_option('low')
-    assert page.locator('#meal-totals strong').first.inner_text() == '268'
-    assert page.locator('#daily-macros strong').first.inner_text() == '268'
-    assert "geen API-kosten" in page.locator(".meal-photo").inner_text()
+    assert page.locator('#meal-totals strong').first.inner_text() == '341'
+    assert page.locator('#daily-macros strong').first.inner_text() == '341'
+    page.screenshot(path=str(artifacts/'training-palace-simple-meal.png'))
     # A screenshot is a valid PNG upload; no external service is contacted.
     page.locator('#meal-photo').set_input_files(str(artifacts/'training-palace-breathing.png'))
     page.wait_for_function("!document.querySelector('.meal-photo-preview').hidden")
-    assert page.locator('#detail-status').inner_text().startswith('Foto lokaal bewaard')
+    assert page.locator('#detail-status').inner_text().startswith('Foto bewaard')
     page.reload(wait_until='networkidle')
     rows.nth(1).locator('.task-open').click()
-    assert page.locator('#meal-description').input_value() == 'Twee eieren en spek'
+    assert page.locator('#meal-description').input_value() == '2x eitjes, met spek en een witte botherham'
     assert page.locator('#meal-mode').input_value() == 'low'
-    assert page.locator('#meal-totals strong').first.inner_text() == '268'
+    assert page.locator('#meal-totals strong').first.inner_text() == '341'
     page.wait_for_function("!document.querySelector('.meal-photo-preview').hidden")
     page.locator('#close-detail').click()
     rows.nth(2).locator('.task-open').click()
     assert page.locator('#food-items .food-row').count() == 0
     page.locator('#close-detail').click()
     rows.nth(3).locator('.task-open').click()
-    page.locator('#food-choice').select_option('custom')
-    page.locator('.custom-food input').nth(0).fill('Eigen maaltijd')
-    page.locator('.custom-food input').nth(1).fill('20')
-    page.locator('.custom-food input').nth(2).fill('30')
-    page.locator('.custom-food input').nth(3).fill('10')
-    page.locator('#food-grams').fill('200')
-    page.get_by_role('button', name='Voedingsmiddel toevoegen').click()
+    page.locator('#meal-manual summary').click()
+    dinner_inputs = page.locator('.transfer-grid input')
+    for i, value in enumerate(['40','60','20']):
+        dinner_inputs.nth(i).fill(value)
+    page.get_by_role('button', name='Gebruik maaltijdtotalen').click()
+    page.locator('#meal-mode').select_option('high')
     assert page.locator('#meal-totals strong').first.inner_text() == '667'
-    assert page.locator('#daily-macros strong').first.inner_text() == '935'
+    assert page.locator('#daily-macros strong').first.inner_text() == '1008'
     page.locator('#close-detail').click()
     rows.nth(4).locator('.task-open').click()
     assert page.locator('.exercise').count() == 4
@@ -96,6 +95,18 @@ with sync_playwright() as p:
     page.locator('#add-task button').click()
     assert page.locator('#task-list img').count() == 0
     rows.nth(1).locator('.task-open').click()
+    # Unknown food must not replace a previous saved estimate with partial nutrition.
+    page.locator('#meal-description').fill('pizza met kip')
+    page.get_by_role('button', name='Schat mijn maaltijd', exact=True).click()
+    assert page.locator('#meal-ai').get_attribute('open') is not None
+    assert 'pizza' in page.locator('#meal-hint').inner_text()
+    assert page.locator('#meal-totals strong').first.inner_text() == '341'
+    assert 'pizza%20met%20kip' in page.locator('.chat-link').get_attribute('href')
+    page.locator('#ai-answer').fill('{"protein":25,"carbs":30,"fat":15}')
+    page.get_by_role('button', name='Gebruik AI-schatting').click()
+    assert page.locator('#meal-totals strong').first.inner_text() == '355'
+    assert page.locator('#meal-mode').input_value() == 'exact'
+    page.locator('#meal-manual summary').click()
     inputs = page.locator('.transfer-grid input')
     for i, value in enumerate(['25', '30', '15']):
         inputs.nth(i).fill(value)
@@ -122,5 +133,5 @@ with sync_playwright() as p:
     rows.nth(5).locator('.task-open').click()
     assert page.locator('#edit-task-detail').input_value() == 'Uitscheppen, afval wegdoen en vloer vegen.'
     assert not errors, errors
-    print('PASS: separate row/checkbox actions; breathing timer and pause; manual macros and bounds; independent meals/day total; photo persistence; manual whole-meal macro transfer; workouts; recurring household task; new-day reset; mobile layout.')
+    print('PASS: separate row/checkbox actions; breathing timer and pause; free-text food estimates, unknown-food fallback, AI-answer import and bounds; independent meals/day total; photo persistence; manual whole-meal macro transfer; workouts; recurring household task; new-day reset; mobile layout.')
     browser.close()
