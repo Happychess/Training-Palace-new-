@@ -1,5 +1,5 @@
-"""Run against the static UI + Node API, e.g. PALACE_TEST_URL=http://127.0.0.1:3003 python tests/browser_smoke.py.
-Requires Python Playwright and Chromium. Provider responses in the photo success test are mocked.
+"""Run against the static UI, e.g. PALACE_TEST_URL=http://127.0.0.1:3003 python tests/browser_smoke.py.
+Requires Python Playwright and Chromium. No external AI service is used.
 """
 import json
 import os
@@ -48,8 +48,7 @@ with sync_playwright() as p:
     page.locator('#meal-mode').select_option('low')
     assert page.locator('#meal-totals strong').first.inner_text() == '268'
     assert page.locator('#daily-macros strong').first.inner_text() == '268'
-    page.wait_for_function("document.querySelector('.meal-photo').textContent.includes('nog niet gekoppeld')")
-    assert page.get_by_role('button', name='Schat macro’s uit foto').is_disabled()
+    assert "geen API-kosten" in page.locator(".meal-photo").inner_text()
     # A screenshot is a valid PNG upload; no external service is contacted.
     page.locator('#meal-photo').set_input_files(str(artifacts/'training-palace-breathing.png'))
     page.wait_for_function("!document.querySelector('.meal-photo-preview').hidden")
@@ -96,15 +95,16 @@ with sync_playwright() as p:
     page.locator('#task-input').fill('<img src=x onerror=alert(1)>')
     page.locator('#add-task button').click()
     assert page.locator('#task-list img').count() == 0
-    # Test the configured photo path with mocked estimates, not a live provider.
-    page.route('**/api/estimate-meal', lambda route: route.fulfill(json={'configured': True}) if route.request.method == 'GET' else route.fulfill(json={'items':[{'name':'Ei, geschat','grams':100,'protein':13,'carbs':1.1,'fat':11}], 'notes':'Gewicht geschat, bakvet onbekend.'}))
     rows.nth(1).locator('.task-open').click()
-    page.get_by_role('button', name='Schat macro’s uit foto').click()
-    page.get_by_role('button', name='Gebruik deze schatting').wait_for()
-    assert page.locator('#food-items .food-row').count() == 2  # confirmation required
-    page.get_by_role('button', name='Gebruik deze schatting').click()
+    inputs = page.locator('.transfer-grid input')
+    for i, value in enumerate(['25', '30', '15']):
+        inputs.nth(i).fill(value)
+    page.get_by_role('button', name='Gebruik maaltijdtotalen').click()
+    assert page.locator('#meal-mode').input_value() == 'exact'
+    assert page.locator('#meal-totals strong').first.inner_text() == '355'
     assert page.locator('#food-items .food-row').count() == 1
-    assert 'Ei, geschat' in page.locator('#food-items').inner_text()
+    page.locator('#meal-mode').select_option('high')
+    assert page.locator('#meal-totals strong').first.inner_text() == '408'
     page.screenshot(path=str(artifacts/'training-palace-meal.png'))
     page.set_viewport_size({'width':390,'height':844})
     assert page.locator('#task-dialog').evaluate('(d)=>d.scrollWidth<=d.clientWidth')
@@ -122,5 +122,5 @@ with sync_playwright() as p:
     rows.nth(5).locator('.task-open').click()
     assert page.locator('#edit-task-detail').input_value() == 'Uitscheppen, afval wegdoen en vloer vegen.'
     assert not errors, errors
-    print('PASS: separate row/checkbox actions; breathing timer and pause; manual macros and bounds; independent meals/day total; photo persistence; optional photo proposal (mock); workouts; recurring household task; new-day reset; mobile layout.')
+    print('PASS: separate row/checkbox actions; breathing timer and pause; manual macros and bounds; independent meals/day total; photo persistence; manual whole-meal macro transfer; workouts; recurring household task; new-day reset; mobile layout.')
     browser.close()

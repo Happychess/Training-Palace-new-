@@ -22,29 +22,23 @@ Elke maaltijd heeft een omschrijving, invoer uit een kleine indicatieve voedings
 
 Foto’s worden verkleind en lokaal in IndexedDB opgeslagen, los van dagboek/checklist in localStorage. De camera-invoer werkt op ondersteunende mobiele browsers via HTTPS. JPG, PNG en WebP worden ondersteund; HEIC moet eerst omgezet worden. Een nieuwe browser of domeinnaam heeft geen toegang tot de eerdere lokale gegevens. Er is nog geen contentplanning.
 
-## Optionele fotoanalyse op Vercel
+## Geen betaalde AI-koppeling
 
-Zonder API-sleutel werken handmatige macroregistratie en lokale foto-opslag. De knop voor automatische fotoanalyse blijft dan uitgeschakeld. Een gewone statische Python-server voert de API-route niet uit.
+Er zijn geen externe AI-aanroepen en geen API-sleutels nodig. Foto’s worden uitsluitend lokaal bewaard en niet automatisch herkend. Een ChatGPT-abonnement omvat geen OpenAI API-gebruik.
 
-1. Controleer eerst Vercel Authentication / Deployment Protection voor de bedoelde omgeving. De API-route heeft zelf geen accountlogin en hoort net als de app achter die beveiliging te staan.
-2. Voeg via Vercel → Settings → Environment Variables een **server-side** `MACRO_VISION_API_KEY` toe met een OpenAI API-sleutel, uitsluitend voor de gewenste beveiligde omgeving. Geen sleutel in Git, browsercode of chat zetten. OpenAI API-gebruik wordt apart afgerekend en valt niet onder een ChatGPT-abonnement.
-3. Deploy opnieuw. `api/estimate-meal.js` is een Vercel Node-functie zonder extra dependencies. `GET /api/estimate-meal` meldt alleen of de koppeling geconfigureerd is; een live analyse kan alsnog mislukken door bijvoorbeeld quota of sleutelrechten.
-4. De gebruiker klikt expliciet op ‘Schat macro’s uit foto’. Alleen dan worden de foto en maaltijdomschrijving naar OpenAI (`gpt-4.1-mini`) gestuurd. Het antwoord is een voorstel met porties, macro’s per 100 g en onzekerheden. De gebruiker kan porties wijzigen en moet bevestigen voordat dit de huidige maaltijd vervangt. Lage/hoge marge wordt daarna toegepast.
-
-De externe OpenAI-koppeling is niet live gevalideerd zonder sleutel. Succes- en foutafhandeling worden getest met gesimuleerde providerantwoorden.
+Je kunt een foto zelf in ChatGPT laten schatten binnen de limieten van je abonnement en de eiwit-, koolhydraat- en vettotalen overnemen bij ‘Macro’s voor de hele maaltijd overnemen’. Deze invoer vervangt de ingrediëntenlijst en gebruikt standaard geen extra marge. Je kunt daarna nog laag of hoog kiezen. Er is geen automatische ChatGPT-abonnementsintegratie.
 
 ## Controles
 
 ```sh
 node --check app.js
-node --test tests/estimate-meal.test.cjs
 # In een aparte terminal, voor de browsertest:
 node tests/serve.cjs
-# Daarna (met Playwright geïnstalleerd):
+# Daarna (met Python Playwright en Chromium geïnstalleerd):
 python tests/browser_smoke.py
 ```
 
-`tests/browser_smoke.py` vereist Python Playwright en Chromium en test tegen een lokale webserver die ook de Node API-route uitvoert (standaard poort 3003, instelbaar via `PALACE_TEST_URL`). De test verifieert taak/vinkje-scheiding, ademhalingstimer, macroberekening, foto-opslag, een gemockte fotoschatting, workouts, dagelijkse herhaling en mobiele layout. De browser-succestest doet geen betaalde API-aanroepen.
+De browsertest gebruikt standaard poort 3003, instelbaar via `PALACE_TEST_URL`. Deze controleert gescheiden taak/vinkje-acties, ademhalingstimer, macroberekening, lokale foto-opslag, overname van maaltijdtotalen, workouts, dagelijkse herhaling en mobiele layout. Er worden geen AI-diensten aangeroepen.
 
 ## Vercel-preview
 
